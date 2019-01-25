@@ -87,8 +87,10 @@ HRESULT CImagePNG::ReadHeader()
 	}
 	png_infop info_ptr = (png_infop)m_info_ptr;
 
-	if (setjmp(png_jmpbuf(png_ptr)))
+	if (setjmp(png_jmpbuf(png_ptr))){
+		LOG(LT_IMAGE, "error: invalid PNG image (setjmp(png_jmpbuf))");
 		return _INVALIDFILE;
+	}
 
 	((ISTREAM*)m_pStream)->setPos(0);
 	png_set_read_fn(png_ptr, m_pStream, custom_png_read_file);

@@ -4,6 +4,8 @@ if(CGAL_FOUND)
 	include_directories(${CGAL_INCLUDE_DIRS})
 	add_definitions(${CGAL_DEFINITIONS})
 	link_directories(${CGAL_LIBRARY_DIRS})
+	message (" Cgal lib dir : ${CGAL_LIBRARY_DIRS} ")
+	message (" Cgal lib : ${CGAL_LIBS} ")
 endif()
 
 FIND_PACKAGE(VCG ${SYSTEM_PACKAGE_REQUIRED})
@@ -42,7 +44,7 @@ cxx_library_with_type_no_pch(MVS "Libs" "" "${cxx_default}"
 set_target_pch(MVS Common.h)
 
 # Link its dependencies
-TARGET_LINK_LIBRARIES(MVS PRIVATE Common Math IO ${CERES_LIBS} ${CGAL_LIBS} ${CUDA_CUDA_LIBRARY} CGAL::CGAL)
+TARGET_LINK_LIBRARIES(MVS PRIVATE Common Math IO ${CERES_LIBS} ${CGAL_LIBS} ${CUDA_CUDA_LIBRARY} gmp)
 
 # Install
 SET_TARGET_PROPERTIES(MVS PROPERTIES

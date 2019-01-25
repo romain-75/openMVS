@@ -31,6 +31,7 @@
 
 #include "Common.h"
 #include "DepthMap.h"
+#include "pfmloader.h"
 #include "../Common/AutoEstimator.h"
 // CGAL: estimate normals
 #include <CGAL/Simple_cartesian.h>
@@ -800,6 +801,16 @@ bool MVS::ExportDepthMap(const String& fileName, const DepthMap& depthMap, Depth
 			maxDepth = 30.f;
 		DEBUG_ULTIMATE("\tdepth range: [%g, %g]", minDepth, maxDepth);
 	}
+	PFM depthPfm;
+	float * profondeur = new float[depthMap.area()];
+	for (int i=0;i<depthMap.area(); i++)
+		profondeur[i] = depthMap[i];
+	depthPfm.setHeight(depthMap.height());
+	depthPfm.setWidth(depthMap.width());	
+	String filenamePfm = fileName + String(".pfm");
+	depthPfm.write_pfm(filenamePfm,profondeur,-1.f);
+	delete[] profondeur;
+		
 	const Depth deltaDepth = maxDepth - minDepth;
 	// save image
 	Image8U img(depthMap.size());

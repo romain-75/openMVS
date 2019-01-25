@@ -527,6 +527,7 @@ bool DepthMapsData::InitDepthMap(DepthData& depthData)
 		}
 	};
 	RasterDepthDataPlaneData data = {camera, depthData.depthMap, depthData.normalMap};
+    //std::cout << "Init : nb de faces projetees : " << delaunay.number_of_faces() << std::endl;
 	for (CGAL::Delaunay::Face_iterator it=delaunay.faces_begin(); it!=delaunay.faces_end(); ++it) {
 		const CGAL::Delaunay::Face& face = *it;
 		const Point3f i0((const Point3&)face.vertex(0)->point());
@@ -541,7 +542,12 @@ bool DepthMapsData::InitDepthMap(DepthData& depthData)
 		data.normal = normalized(edge2.cross(edge1));
 		data.normalPlane = data.normal * INVERT(data.normal.dot(c0));
 		// draw triangle and for each pixel compute depth as the ray intersection with the plane
-		Image8U::RasterizeTriangle((const Point2f&)i2, (const Point2f&)i1, (const Point2f&)i0, data);
+        //std::cout << i2.x << ", " << i1 << ", " << i0 << std::endl;
+        const Point2f i2b(i2.x, i2.y);
+        const Point2f i1b(i1.x, i1.y);
+        const Point2f i0b(i0.x, i0.y);
+        Image8U::RasterizeTriangle(i2b, i1b, i0b, data);
+        //Image8U::RasterizeTriangle((const Point2f&)i2, (const Point2f&)i1, (const Point2f&)i0, data);
 	}
 
 	DEBUG_ULTIMATE("Depth-map %3u roughly estimated from %u sparse points: %dx%d (%s)", &depthData-arrDepthData.Begin(), depthData.points.GetSize(), image.image.width(), image.image.height(), TD_TIMER_GET_FMT().c_str());
@@ -1628,15 +1634,16 @@ bool Scene::DenseReconstruction()
 	// start working threads
 	data.progress = new Util::Progress("Estimated depth-maps", data.images.GetSize());
 	GET_LOGCONSOLE().Pause();
-	if (nMaxThreads > 1) {
+    if (nMaxThreads > 1) {
 		// multi-thread execution
-		cList<SEACAVE::Thread> threads(2);
+        cList<SEACAVE::Thread> threads(2);
 		FOREACHPTR(pThread, threads)
 			pThread->start(DenseReconstructionEstimateTmp, (void*)&data);
 		FOREACHPTR(pThread, threads)
 			pThread->join();
 	} else {
 		// single-thread execution
+		VERBOSE("single-thread execution");
 		DenseReconstructionEstimate((void*)&data);
 	}
 	GET_LOGCONSOLE().Play();
@@ -1724,6 +1731,7 @@ void Scene::DenseReconstructionEstimate(void* pData)
 			if (evtImage.idxImage >= data.images.GetSize()) {
 				if (nMaxThreads > 1) {
 					// close working threads
+					VERBOSE("close working threads");
 					data.events.AddEvent(new EVTClose);
 				}
 				return;
@@ -1803,8 +1811,7 @@ void Scene::DenseReconstructionEstimate(void* pData)
 			DepthData& depthData(data.detphMaps.arrDepthData[idx]);
 			#if TD_VERBOSE != TD_VERBOSE_OFF
 			// save depth map as image
-			if (g_nVerbosityLevel > 2) {
-				ExportDepthMap(ComposeDepthFilePath(idx, "png"), depthData.depthMap);
+			if (g_nVerbosityLevel > 2) {				
 				ExportConfidenceMap(ComposeDepthFilePath(idx, "conf.png"), depthData.confMap);
 				ExportPointCloud(ComposeDepthFilePath(idx, "ply"), *depthData.images.First().pImageData, depthData.depthMap, depthData.normalMap);
 				if (g_nVerbosityLevel > 4) {
@@ -1814,6 +1821,7 @@ void Scene::DenseReconstructionEstimate(void* pData)
 			}
 			#endif
 			// save compute depth-map for this image
+			ExportDepthMap(ComposeDepthFilePath(idx, "png"), depthData.depthMap);
 			depthData.Save(ComposeDepthFilePath(idx, "dmap"));
 			depthData.ReleaseImages();
 			depthData.Release();
@@ -1910,6 +1918,7 @@ void Scene::DenseReconstructionFilter(void* pData)
 			}
 			#endif
 			// save filtered depth-map for this image
+			ExportDepthMap(ComposeDepthFilePath(idx, "filtered.png"), depthData.depthMap);
 			depthData.Save(ComposeDepthFilePath(idx, "dmap"));
 			depthData.DecRef();
 			data.progress->operator++();

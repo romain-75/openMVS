@@ -35,12 +35,12 @@ INT_TYPE cvRANSACUpdateNumIters(REAL_TYPE p, REAL_TYPE ep, INT_TYPE modelPoints,
 	ASSERT(p>=0 && p<=1);
 	ASSERT(ep>=0 && ep<=1);
 	// avoid inf's & nan's
-	REAL_TYPE num = MAXF(REAL_TYPE(1)-p, EPSILONTOLERANCE<REAL_TYPE>());
+	REAL_TYPE num = MAXF(REAL_TYPE(1)-p, SEACAVE::EPSILONTOLERANCE<REAL_TYPE>());
 	REAL_TYPE denom = REAL_TYPE(1)-POWI(REAL_TYPE(1)-ep, modelPoints);
-	if (denom < EPSILONTOLERANCE<REAL_TYPE>())
+	if (denom < SEACAVE::EPSILONTOLERANCE<REAL_TYPE>())
 		return 0;
-	num = LOGN(num);
-	denom = LOGN(denom);
+	num = SEACAVE::LOGN(num);
+	denom = SEACAVE::LOGN(denom);
 	return (denom >= 0 || -num >= (-denom)*maxIters ? maxIters : (INT_TYPE)ROUND2INT(num/denom));
 }
 #endif
@@ -2123,6 +2123,8 @@ void TImage<TYPE>::RasterizeTriangle(const TPoint2<T>& v1, const TPoint2<T>& v2,
 	const int_t X2 = ROUND2INT(T(16) * v2.x);
 	const int_t X3 = ROUND2INT(T(16) * v3.x);
 
+    //std::cout << "v1.x : " << (float) v1.x << " " << T(16) * v1.x << " " << X1 << std::endl;
+
 	// Deltas
 	const int_t DX12 = X1 - X2;
 	const int_t DX23 = X2 - X3;
@@ -2146,6 +2148,7 @@ void TImage<TYPE>::RasterizeTriangle(const TPoint2<T>& v1, const TPoint2<T>& v2,
 	int maxx = (int)((MAXF3(X1, X2, X3) + 0xF) >> 4);
 	int miny = (int)((MINF3(Y1, Y2, Y3) + 0xF) >> 4);
 	int maxy = (int)((MAXF3(Y1, Y2, Y3) + 0xF) >> 4);
+    //std::cout << "maxx : " << maxx << " " << MAXF3(X1, X2, X3) << " " << X1 << " " << X2 << " " << X3 << std::endl;
 
 	// Block size, standard 8x8 (must be power of two)
 	const int q = 8;
