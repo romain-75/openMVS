@@ -1157,9 +1157,13 @@ bool writeMatBinary(std::ofstream& ofs, const cv::Mat& out_mat)
     if (zlibOk == Z_OK){
         ofs.write((const char*)(&dataLengthCompresse), sizeof(int));
         ofs.write((const char*)dataCompresse, dataLengthCompresse);
+        delete[] dataCompresse;
     }
-    else
+    else{
+        delete[] dataCompresse;
+        std::cout << "erreur dans la compression vidéo" << std::endl;
         return false;
+    }
 
     return true;
 }
