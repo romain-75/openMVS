@@ -1,5 +1,5 @@
 # Find required packages
-FIND_PACKAGE(CGAL ${SYSTEM_PACKAGE_REQUIRED})
+FIND_PACKAGE(CGAL ${SYSTEM_PACKAGE_REQUIRED} PATHS /usr/local/Cellar/cgal/4.14.1)
 if(CGAL_FOUND)
 	include_directories(${CGAL_INCLUDE_DIRS})
 	add_definitions(${CGAL_DEFINITIONS})
