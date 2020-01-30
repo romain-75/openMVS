@@ -1161,7 +1161,7 @@ bool writeMatBinary(std::ofstream& ofs, const cv::Mat& out_mat)
     }
     else{
         delete[] dataCompresse;
-        std::cout << "erreur dans la compression vidéo" << std::endl;
+        std::cout << "erreur dans la compression de cvMat" << std::endl;
         return false;
     }
 
