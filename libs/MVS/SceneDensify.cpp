@@ -368,63 +368,17 @@ bool DepthMapsData::InitDepthMap(DepthData& depthData)
 	TD_TIMER_STARTD();
 
 	ASSERT(depthData.images.GetSize() > 1 && !depthData.points.IsEmpty());
+	const DepthData::ViewData& image(depthData.GetView());
+	TriangulatePoints2DepthMap(image, scene.pointcloud, depthData.points, depthData.depthMap, depthData.normalMap, depthData.dMin, depthData.dMax);
+	depthData.dMin *= 0.9f;
+	depthData.dMax *= 1.1f;
 
-	const DepthData::ViewData& image(depthData.images.First());
-	ASSERT(!image.image.empty());
-
-	// triangulate in-view points
-	CGAL::Delaunay delaunay;
-	const std::pair<float,float> thDepth(TriangulatePointsDelaunay(delaunay, scene, image, depthData.points));
-	depthData.dMin = thDepth.first*0.9f;
-	depthData.dMax = thDepth.second*1.1f;
-
-	// create rough depth-map by interpolating inside triangles
-	const Camera& camera = image.camera;
-	depthData.depthMap.create(image.image.size());
-	depthData.normalMap.create(image.image.size());
-	if (!OPTDENSE::bAddCorners) {
-		depthData.depthMap.setTo(Depth(0));
-		depthData.normalMap.setTo(0.f);
-	}
-	struct RasterDepthDataPlaneData {
-		const Camera& P;
-		DepthMap& depthMap;
-		NormalMap& normalMap;
-		Point3f normal;
-		Point3f normalPlane;
-		inline void operator()(const ImageRef& pt) {
-			if (!depthMap.isInside(pt))
-				return;
-			const Depth z(INVERT(normalPlane.dot(P.TransformPointI2C(Point2f(pt)))));
-			if (z <= 0) // due to numerical instability
-				return;
-			depthMap(pt) = z;
-			normalMap(pt) = normal;
-		}
-	};
-	RasterDepthDataPlaneData data = {camera, depthData.depthMap, depthData.normalMap};
-    //std::cout << "Init : nb de faces projetees : " << delaunay.number_of_faces() << std::endl;
-	for (CGAL::Delaunay::Face_iterator it=delaunay.faces_begin(); it!=delaunay.faces_end(); ++it) {
-		const CGAL::Delaunay::Face& face = *it;
-		const Point3f i0(reinterpret_cast<const Point3d&>(face.vertex(0)->point()));
-		const Point3f i1(reinterpret_cast<const Point3d&>(face.vertex(1)->point()));
-		const Point3f i2(reinterpret_cast<const Point3d&>(face.vertex(2)->point()));
-		// compute the plane defined by the 3 points
-		const Point3f c0(camera.TransformPointI2C(i0));
-		const Point3f c1(camera.TransformPointI2C(i1));
-		const Point3f c2(camera.TransformPointI2C(i2));
-		const Point3f edge1(c1-c0);
-		const Point3f edge2(c2-c0);
-		data.normal = normalized(edge2.cross(edge1));
-		data.normalPlane = data.normal * INVERT(data.normal.dot(c0));
-		// draw triangle and for each pixel compute depth as the ray intersection with the plane
-        //std::cout << i2.x << ", " << i1 << ", " << i0 << std::endl;
-        //const Point2f i2b(i2.x, i2.y);
-        //const Point2f i1b(i1.x, i1.y);
-        //const Point2f i0b(i0.x, i0.y);
-        //Image8U::RasterizeTriangle(i2b, i1b, i0b, data);
-        //Image8U::RasterizeTriangle((const Point2f&)i2, (const Point2f&)i1, (const Point2f&)i0, data);
-		Image8U::RasterizeTriangle(reinterpret_cast<const Point2f&>(i2), reinterpret_cast<const Point2f&>(i1), reinterpret_cast<const Point2f&>(i0), data);
+	#if TD_VERBOSE != TD_VERBOSE_OFF
+	// save rough depth map as image
+	if (g_nVerbosityLevel > 4) {
+		ExportDepthMap(ComposeDepthFilePath(image.GetID(), "init.png"), depthData.depthMap);
+		ExportNormalMap(ComposeDepthFilePath(image.GetID(), "init.normal.png"), depthData.normalMap);
+		ExportPointCloud(ComposeDepthFilePath(image.GetID(), "init.ply"), *depthData.images.First().pImageData, depthData.depthMap, depthData.normalMap);
 	}
 	#endif
 
@@ -1621,16 +1575,15 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data)
 	// start working threads
 	data.progress = new Util::Progress("Estimated depth-maps", data.images.GetSize());
 	GET_LOGCONSOLE().Pause();
-    if (nMaxThreads > 1) {
+	if (nMaxThreads > 1) {
 		// multi-thread execution
-        cList<SEACAVE::Thread> threads(2);
+		cList<SEACAVE::Thread> threads(2);
 		FOREACHPTR(pThread, threads)
 			pThread->start(DenseReconstructionEstimateTmp, (void*)&data);
 		FOREACHPTR(pThread, threads)
 			pThread->join();
 	} else {
 		// single-thread execution
-		VERBOSE("single-thread execution");
 		DenseReconstructionEstimate((void*)&data);
 	}
 	GET_LOGCONSOLE().Play();
@@ -1686,7 +1639,6 @@ void Scene::DenseReconstructionEstimate(void* pData)
 			if (evtImage.idxImage >= data.images.GetSize()) {
 				if (nMaxThreads > 1) {
 					// close working threads
-					VERBOSE("close working threads");
 					data.events.AddEvent(new EVTClose);
 				}
 				return;
