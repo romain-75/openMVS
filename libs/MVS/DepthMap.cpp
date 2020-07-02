@@ -31,12 +31,9 @@
 
 #include "Common.h"
 #include "DepthMap.h"
-<<<<<<< HEAD
-#include "pfmloader.h"
-=======
+//#include "pfmloader.h"
 #define _USE_OPENCV
 #include "Interface.h"
->>>>>>> 1de8e4bd83c37376914784d8bf47a17e80c95d7b
 #include "../Common/AutoEstimator.h"
 // CGAL: depth-map initialization
 #include <CGAL/Simple_cartesian.h>
