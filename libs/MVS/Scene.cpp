@@ -79,7 +79,9 @@ bool Scene::LoadInterface(const String & fileName)
 			Platform::Camera& camera = platform.cameras.AddEmpty();
 			camera.K = itCamera.K;
 			camera.R = itCamera.R;
+			//std::cout << "camera.R : " << camera.R << std::endl;
 			camera.C = itCamera.C;
+			//std::cout << "camera.C : " << camera.C << std::endl;
 			if (!itCamera.IsNormalized()) {
 				// normalize K
 				ASSERT(itCamera.HasResolution());
@@ -89,6 +91,7 @@ bool Scene::LoadInterface(const String & fileName)
 				camera.K(0,2) *= scale;
 				camera.K(1,2) *= scale;
 			}
+			//std::cout << "camera.K : " << camera.K << std::endl;
 			DEBUG_EXTRA("Camera model loaded: platform %u; camera %2u; f %.3fx%.3f; poses %u", platforms.size()-1, platform.cameras.size()-1, camera.K(0,0), camera.K(1,1), itPlatform.poses.size());
 		}
 		ASSERT(platform.cameras.GetSize() == itPlatform.cameras.size());
@@ -97,6 +100,8 @@ bool Scene::LoadInterface(const String & fileName)
 			Platform::Pose& pose = platform.poses.AddEmpty();
 			pose.R = itPose.R;
 			pose.C = itPose.C;
+			//std::cout << "pose.R : " << pose.R<< std::endl;
+			//std::cout << "pose.C : " << pose.C << std::endl;
 		}
 		ASSERT(platform.poses.GetSize() == itPlatform.poses.size());
 	}
