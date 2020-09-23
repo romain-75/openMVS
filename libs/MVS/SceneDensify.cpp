@@ -367,8 +367,7 @@ bool DepthMapsData::InitDepthMap(DepthData& depthData)
 {
 	TD_TIMER_STARTD();
 
-	ASSERT(depthData.images.GetSize() > 1 && !depthData.points.IsEmpty());
-
+        ASSERT(depthData.images.GetSize() > 1 && !depthData.points.IsEmpty());
 	const DepthData::ViewData& image(depthData.GetView());
 	TriangulatePoints2DepthMap(image, scene.pointcloud, depthData.points, depthData.depthMap, depthData.normalMap, depthData.dMin, depthData.dMax);
 	depthData.dMin *= 0.9f;
