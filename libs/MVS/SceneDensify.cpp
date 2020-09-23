@@ -368,6 +368,7 @@ bool DepthMapsData::InitDepthMap(DepthData& depthData)
 	TD_TIMER_STARTD();
 
 	ASSERT(depthData.images.GetSize() > 1 && !depthData.points.IsEmpty());
+
 	const DepthData::ViewData& image(depthData.GetView());
 	TriangulatePoints2DepthMap(image, scene.pointcloud, depthData.points, depthData.depthMap, depthData.normalMap, depthData.dMin, depthData.dMax);
 	depthData.dMin *= 0.9f;
@@ -1575,15 +1576,16 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data)
 	// start working threads
 	data.progress = new Util::Progress("Estimated depth-maps", data.images.GetSize());
 	GET_LOGCONSOLE().Pause();
-	if (nMaxThreads > 1) {
+    if (nMaxThreads > 1) {
 		// multi-thread execution
-		cList<SEACAVE::Thread> threads(2);
+        cList<SEACAVE::Thread> threads(2);
 		FOREACHPTR(pThread, threads)
 			pThread->start(DenseReconstructionEstimateTmp, (void*)&data);
 		FOREACHPTR(pThread, threads)
 			pThread->join();
 	} else {
 		// single-thread execution
+		VERBOSE("single-thread execution");
 		DenseReconstructionEstimate((void*)&data);
 	}
 	GET_LOGCONSOLE().Play();
@@ -1639,6 +1641,7 @@ void Scene::DenseReconstructionEstimate(void* pData)
 			if (evtImage.idxImage >= data.images.GetSize()) {
 				if (nMaxThreads > 1) {
 					// close working threads
+					VERBOSE("close working threads");
 					data.events.AddEvent(new EVTClose);
 				}
 				return;

@@ -41,6 +41,8 @@
 #include <CGAL/property_map.h>
 #include <CGAL/pca_estimate_normals.h>
 
+#include "zlib/zlib.h"
+
 using namespace MVS;
 
 
@@ -1440,10 +1442,59 @@ bool MVS::EstimateNormalMap(const Matrix3x3f& K, const DepthMap& depthMap, Norma
 /*----------------------------------------------------------------*/
 
 
+bool writeMatBinary(std::ofstream& ofs, const cv::Mat& out_mat)
+{
+	if (!ofs.is_open()) {
+		return false;
+	}
+	if (out_mat.empty()) {
+		int s = 0;
+		ofs.write((const char*)(&s), sizeof(int));
+		return true;
+	}
+	int type = out_mat.type();
+	ofs.write((const char*)(&out_mat.rows), sizeof(int));
+	ofs.write((const char*)(&out_mat.cols), sizeof(int));
+	ofs.write((const char*)(&type), sizeof(int));
+
+	// on compresse les données
+	const int maxNbOfBytes = (int) out_mat.elemSize() * (int) out_mat.total();
+	unsigned char* dataCompresse = new unsigned char[maxNbOfBytes];
+	int dataLengthCompresse = 0;
+	int zlibOk = compress(dataCompresse, (unsigned long*)&dataLengthCompresse, (const Bytef*)out_mat.data, maxNbOfBytes);
+	if (zlibOk == Z_OK) {
+		ofs.write((const char*)(&dataLengthCompresse), sizeof(int));
+		ofs.write((const char*)dataCompresse, dataLengthCompresse);
+		delete[] dataCompresse;
+	}
+	else {
+		delete[] dataCompresse;
+		std::cout << "erreur dans la compression de cvMat" << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
+bool saveMatBinary(const std::string& filename, const cv::Mat& output) {
+	std::ofstream ofs(filename.c_str(), std::ios::binary);
+	return writeMatBinary(ofs, output);
+}
+
 // save the depth map in our .dmap file format
 bool MVS::SaveDepthMap(const String& fileName, const DepthMap& depthMap)
 {
-	ASSERT(!depthMap.empty());
+    ASSERT(!depthMap.empty());
+
+    // sauvegarde pour Eva
+    std::string fileNameEva (fileName);
+    fileNameEva.pop_back(); // suppression du .tmp
+    fileNameEva.pop_back();
+    fileNameEva.pop_back();
+    fileNameEva.pop_back();
+    fileNameEva += std::string(".disp");
+    saveMatBinary(fileNameEva,depthMap);
+
 	return SerializeSave(depthMap, fileName, ARCHIVE_BINARY_ZIP);
 } // SaveDepthMap
 /*----------------------------------------------------------------*/
@@ -1507,6 +1558,7 @@ bool MVS::ExportDepthMap(const String& fileName, const DepthMap& depthMap, Depth
 			maxDepth = 30.f;
 		DEBUG_ULTIMATE("\tdepth range: [%g, %g]", minDepth, maxDepth);
 	}
+			
 	const Depth deltaDepth = maxDepth - minDepth;
 	// save image
 	Image8U img(depthMap.size());
@@ -1723,11 +1775,16 @@ bool MVS::ExportDepthDataRaw(const String& fileName, const String& imageFileName
 	ASSERT(confMap.empty() || depthMap.size() == confMap.size());
 	ASSERT(depthMap.width() <= imageSize.width && depthMap.height() <= imageSize.height);
 
+    std::string fileNameEva (fileName);
+    fileNameEva += std::string(".disp");
+    //std::cout << "Sauve la depthmap " << fileNameEva << std::endl;
+    saveMatBinary(fileNameEva,depthMap);
+
 	FILE *f = fopen(fileName, "wb");
 	if (f == NULL) {
 		DEBUG("error: opening file '%s' for writing depth-data", fileName.c_str());
 		return false;
-	}
+    }
 
 	// write header
 	HeaderDepthDataRaw header;
@@ -1773,10 +1830,11 @@ bool MVS::ExportDepthDataRaw(const String& fileName, const String& imageFileName
 
 	// write confidence-map
 	if ((header.type & HeaderDepthDataRaw::HAS_CONF) != 0)
-		fwrite(confMap.getData(), sizeof(float), confMap.area(), f);
+        fwrite(confMap.getData(), sizeof(float), confMap.area(), f);
 
 	const bool bRet(ferror(f) == 0);
 	fclose(f);
+
 	return bRet;
 } // ExportDepthDataRaw
 

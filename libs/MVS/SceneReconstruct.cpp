@@ -41,6 +41,7 @@
 #include <CGAL/AABB_traits.h>
 #include <CGAL/AABB_triangle_primitive.h>
 #include <CGAL/Polyhedron_3.h>
+#include <CGAL/Kernel/global_functions.h>
 
 using namespace MVS;
 
