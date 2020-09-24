@@ -1,4 +1,7 @@
 # Find required packages
+
+include_directories("C:/3d/auxiliary/gmp/include")
+
 FIND_PACKAGE(CGAL ${SYSTEM_PACKAGE_REQUIRED} PATHS /usr/local/Cellar/cgal/4.14.1)
 if(CGAL_FOUND)
 	include_directories(${CGAL_INCLUDE_DIRS})
@@ -31,13 +34,16 @@ FILE(GLOB PCH_C "Common.cpp")
 FILE(GLOB LIBRARY_FILES_C "*.cpp")
 FILE(GLOB LIBRARY_FILES_H "*.h" "*.inl")
 
+file(GLOB SOURCES_ZLIB "zlib/*.c")
+file(GLOB HEADERS_ZLIB "zlib/*.h")
+
 # Place Common.cpp as the first file in the list
 # needed by cotire when setting PCH manually
 LIST(REMOVE_ITEM LIBRARY_FILES_C ${PCH_C})
 SET(LIBRARY_FILES_C "${PCH_C};${LIBRARY_FILES_C}")
 
 cxx_library_with_type_no_pch(MVS "Libs" "" "${cxx_default}"
-	${LIBRARY_FILES_C} ${LIBRARY_FILES_H}
+	${LIBRARY_FILES_C} ${LIBRARY_FILES_H} ${SOURCES_ZLIB} ${HEADERS_ZLIB}
 )
 
 # Manually set Common.h as the precompiled header
