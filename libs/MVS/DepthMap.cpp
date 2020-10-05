@@ -1352,48 +1352,6 @@ void MVS::EstimatePointNormals(const ImageArr& images, PointCloud& pointcloud, i
 } // EstimatePointNormals
 /*----------------------------------------------------------------*/
 
-<<<<<<< HEAD
-bool writeMatBinary(std::ofstream& ofs, const cv::Mat& out_mat)
-{
-    if(!ofs.is_open()){
-        return false;
-    }
-    if(out_mat.empty()){
-        int s = 0;
-        ofs.write((const char*)(&s), sizeof(int));
-        return true;
-    }
-    int type = out_mat.type();
-    ofs.write((const char*)(&out_mat.rows), sizeof(int));
-    ofs.write((const char*)(&out_mat.cols), sizeof(int));
-    ofs.write((const char*)(&type), sizeof(int));
-
-    // on compresse les données
-    const int maxNbOfBytes = out_mat.elemSize() * out_mat.total();
-    unsigned char * dataCompresse = new unsigned char[maxNbOfBytes];
-    int dataLengthCompresse = 0;
-    int zlibOk = compress(dataCompresse, (unsigned long *)&dataLengthCompresse, (const Bytef *) out_mat.data, maxNbOfBytes);
-    if (zlibOk == Z_OK){
-        ofs.write((const char*)(&dataLengthCompresse), sizeof(int));
-        ofs.write((const char*)dataCompresse, dataLengthCompresse);
-        delete[] dataCompresse;
-    }
-    else{
-        delete[] dataCompresse;
-        std::cout << "erreur dans la compression de cvMat" << std::endl;
-        return false;
-    }
-
-    return true;
-}
-
-bool saveMatBinary(const std::string& filename, const cv::Mat& output){
-    std::ofstream ofs(filename.c_str(), std::ios::binary);
-    return writeMatBinary(ofs, output);
-}
-
-=======
->>>>>>> 65fc748ba1caf65c3f924288dda0e3b29d0febba
 bool MVS::EstimateNormalMap(const Matrix3x3f& K, const DepthMap& depthMap, NormalMap& normalMap)
 {
 	normalMap.create(depthMap.size());
