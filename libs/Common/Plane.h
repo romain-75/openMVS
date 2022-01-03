@@ -27,6 +27,9 @@ class TPlane
 	STATIC_ASSERT(DIMS > 0 && DIMS <= 3);
 
 public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    
 	typedef Eigen::Matrix<TYPE,DIMS,1> VECTOR;
 	typedef Eigen::Matrix<TYPE,DIMS,1> POINT;
 	typedef SEACAVE::TAABB<TYPE,DIMS> AABB;
@@ -85,6 +88,9 @@ class TFrustum
 	STATIC_ASSERT(DIMS > 0 && DIMS <= 6);
 
 public:
+    
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    
 	typedef Eigen::Matrix<TYPE,4,4,Eigen::RowMajor> MATRIX4x4;
 	typedef Eigen::Matrix<TYPE,3,4,Eigen::RowMajor> MATRIX3x4;
 	typedef Eigen::Matrix<TYPE,4,1> VECTOR4;

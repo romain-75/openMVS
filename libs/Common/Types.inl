@@ -3778,7 +3778,7 @@ namespace boost {
 // include headers that implement compressed serialization support
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
-#if BOOST_VERSION >= 106900
+#if BOOST_VERSION >= 1069000
 #include <boost/iostreams/filter/zstd.hpp>
 #endif
 #if defined(_MSC_VER)
@@ -3792,7 +3792,7 @@ enum ARCHIVE_TYPE {
 	ARCHIVE_BINARY_ZIP,
 	ARCHIVE_BINARY_ZSTD,
 	ARCHIVE_LAST,
-	#if BOOST_VERSION >= 106900
+	#if BOOST_VERSION >= 1069000
 	ARCHIVE_DEFAULT = ARCHIVE_BINARY_ZSTD
 	#else
 	ARCHIVE_DEFAULT = ARCHIVE_BINARY_ZIP
@@ -3821,7 +3821,7 @@ bool SerializeSave(const TYPE& obj, std::ofstream& fs, ARCHIVE_TYPE type, unsign
 		boost::archive::binary_oarchive ar(ffs, flags);
 		ar << obj;
 		break; }
-	#if BOOST_VERSION >= 106900
+	#if BOOST_VERSION >= 1069000
 	case ARCHIVE_BINARY_ZSTD: {
 		namespace io = boost::iostreams;
 		io::filtering_streambuf<io::output> ffs;
@@ -3871,7 +3871,7 @@ bool SerializeLoad(TYPE& obj, std::ifstream& fs, ARCHIVE_TYPE type, unsigned fla
 			boost::archive::binary_iarchive ar(ffs, flags);
 			ar >> obj;
 			break; }
-		#if BOOST_VERSION >= 106900
+		#if BOOST_VERSION >= 1069000
 		case ARCHIVE_BINARY_ZSTD: {
 			namespace io = boost::iostreams;
 			io::filtering_streambuf<io::input> ffs;
