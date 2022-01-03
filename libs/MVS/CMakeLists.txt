@@ -1,9 +1,17 @@
 # Find required packages
+
+if (WIN32)
+    include_directories("C:/3d/auxiliary/gmp/include")
+endif()
+
 FIND_PACKAGE(CGAL ${SYSTEM_PACKAGE_REQUIRED} PATHS /usr/local/Cellar/cgal/5.3.1)
+
 if(CGAL_FOUND)
 	include_directories(${CGAL_INCLUDE_DIRS})
 	add_definitions(${CGAL_DEFINITIONS})
 	link_directories(${CGAL_LIBRARY_DIRS})
+	message (" Cgal lib dir : ${CGAL_LIBRARY_DIRS} ")
+	message (" Cgal lib : ${CGAL_LIBS} ")
 endif()
 
 if (APPLE)
@@ -49,7 +57,13 @@ endif()
 if(_USE_CUDA)
 	set_target_properties(MVS PROPERTIES CUDA_ARCHITECTURES "50;72;75")
 endif()
-TARGET_LINK_LIBRARIES(MVS PRIVATE Common Math IO CGAL::CGAL ${CERES_LIBRARIES} ${CUDA_CUDA_LIBRARY})
+IF (WIN32)
+    #TARGET_LINK_LIBRARIES(MVS PRIVATE Common Math IO CGAL::CGAL ${CERES_LIBRARIES} ${CUDA_CUDA_LIBRARY})
+    TARGET_LINK_LIBRARIES(MVS PRIVATE Common Math IO ${CERES_LIBS} ${CGAL_LIBS} ${CUDA_CUDA_LIBRARY} C:/3d/auxiliary/gmp/lib/libgmp-10.lib)
+else (WIN32)
+    #TARGET_LINK_LIBRARIES(MVS PRIVATE Common Math IO ${CERES_LIBS} ${CGAL_LIBS} ${CUDA_CUDA_LIBRARY} gmp z)
+    TARGET_LINK_LIBRARIES(MVS PRIVATE Common Math IO CGAL::CGAL ${CERES_LIBRARIES} ${CUDA_CUDA_LIBRARY})
+endif (WIN32)
 
 # Install
 SET_TARGET_PROPERTIES(MVS PROPERTIES

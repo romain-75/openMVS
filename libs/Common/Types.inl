@@ -2476,6 +2476,8 @@ void TImage<TYPE>::RasterizeTriangle(const TPoint2<T>& v1, const TPoint2<T>& v2,
 	const int_t X2 = ROUND2INT(T(16) * v2.x);
 	const int_t X3 = ROUND2INT(T(16) * v3.x);
 
+    //std::cout << "v1.x : " << (float) v1.x << " " << T(16) * v1.x << " " << X1 << std::endl;
+
 	// Deltas
 	const int_t DX12 = X1 - X2;
 	const int_t DX23 = X2 - X3;
@@ -2499,6 +2501,7 @@ void TImage<TYPE>::RasterizeTriangle(const TPoint2<T>& v1, const TPoint2<T>& v2,
 	int maxx = (int)((MAXF3(X1, X2, X3) + 0xF) >> 4);
 	int miny = (int)((MINF3(Y1, Y2, Y3) + 0xF) >> 4);
 	int maxy = (int)((MAXF3(Y1, Y2, Y3) + 0xF) >> 4);
+    //std::cout << "maxx : " << maxx << " " << MAXF3(X1, X2, X3) << " " << X1 << " " << X2 << " " << X3 << std::endl;
 
 	// Block size, standard 8x8 (must be power of two)
 	const int q = 8;
