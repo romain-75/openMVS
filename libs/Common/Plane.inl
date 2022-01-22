@@ -259,21 +259,25 @@ bool TPlane<TYPE,DIMS>::Intersects(const AABB& aabb) const
 template <typename TYPE, int DIMS>
 inline TFrustum<TYPE,DIMS>::TFrustum(const MATRIX4x4& m)
 {
+    m_planes.resize(DIMS);
 	Set<0>(m);
 }
 template <typename TYPE, int DIMS>
 inline TFrustum<TYPE,DIMS>::TFrustum(const MATRIX3x4& m)
 {
-	Set<0>(m);
+    m_planes.resize(DIMS);
+    Set<0>(m);
 }
 template <typename TYPE, int DIMS>
 inline TFrustum<TYPE,DIMS>::TFrustum(const MATRIX4x4& m, TYPE w, TYPE h, TYPE n, TYPE f)
 {
+    m_planes.resize(DIMS);
 	Set(m, w, h, n, f);
 }
 template <typename TYPE, int DIMS>
 inline TFrustum<TYPE,DIMS>::TFrustum(const MATRIX3x4& m, TYPE w, TYPE h, TYPE n, TYPE f)
 {
+    m_planes.resize(DIMS);
 	Set(m, w, h, n, f);
 } // Constructor
 /*----------------------------------------------------------------*/

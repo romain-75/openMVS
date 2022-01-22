@@ -1436,6 +1436,7 @@ public:
 	typedef cv::Vec<TYPE,m> Vec;
 	#ifdef _USE_EIGEN
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW_IF_VECTORIZABLE_FIXED_SIZE(TYPE,m*n)
+//    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	typedef Eigen::Matrix<TYPE,m,n,(n>1?Eigen::RowMajor:Eigen::Default)> EMat;
 	typedef Eigen::Map<const EMat> CEMatMap;
 	typedef Eigen::Map<EMat> EMatMap;
@@ -1510,8 +1511,12 @@ public:
 
 	#ifdef _USE_EIGEN
 	// Access point as Eigen equivalent
-	inline operator const EMat& () const { return *((const EMat*)this); }
-	inline operator EMat& () { return *((EMat*)this); }
+	inline operator const EMat& () const {
+        return *((const EMat*)this);
+    }
+	inline operator EMat& () {
+        return *((EMat*)this);
+    }
 	// Access point as Eigen::Map equivalent
 	inline operator CEMatMap() const { return CEMatMap((const TYPE*)val); }
 	inline operator EMatMap () { return EMatMap((TYPE*)val); }

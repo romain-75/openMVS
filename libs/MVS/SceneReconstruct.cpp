@@ -43,6 +43,8 @@
 #include <CGAL/Polyhedron_3.h>
 #include <CGAL/Kernel/global_functions.h>
 
+#include <opencv2/core/eigen.hpp>
+
 using namespace MVS;
 
 
@@ -400,9 +402,12 @@ void fetchCellFacets(const delaunay_t& Tr, const std::vector<facet_t>& hullFacet
 	// create the 4 frustum planes
 	ASSERT(facets.empty());
 	typedef TFrustum<REAL,4> Frustum;
-//	std::cout << "pouet" << imageData.width << " " << imageData.height << " " <<  std::endl;	
-	Frustum frustum(imageData.camera.P, imageData.width, imageData.height, 0, 1);
-//	std::cout << "pouet2" << std::endl;
+	//std::cout << "pouet" << imageData.width << " " << imageData.height << " " <<  std::endl;
+    Eigen::Matrix<double,3,4,Eigen::RowMajor> Ptmp ;
+    cv::cv2eigen(imageData.camera.P,Ptmp);
+    //imageData.camera.P
+	Frustum frustum(Ptmp, imageData.width, imageData.height, 0, 1);
+	//std::cout << "pouet2" << std::endl;
 	// loop over all cells
 	const point_t ptOrigin(MVS2CGAL(imageData.camera.C));
 	for (const facet_t& face: hullFacets) {
