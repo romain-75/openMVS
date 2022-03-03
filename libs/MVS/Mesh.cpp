@@ -1470,16 +1470,17 @@ bool Mesh::Save(const String& fileName, const cList<String>& comments, bool bBin
 {
 	TD_TIMER_STARTD();
 	const String ext(Util::getFileExt(fileName).ToLower());
+	const String baseFileName(Util::getFileName(fileName));
 	bool ret;
 	if (ext == _T(".obj"))
 		ret = SaveOBJ(fileName);
 	else {
-//    	if (ext == _T(".gltf") || ext == _T(".glb"))
-//		ret = SaveGLTF(fileName, ext == _T(".glb"));
-        ret = SaveGLTF(fileName, true);
-//	else
-//		ret &= SavePLY(ext != _T(".ply") ? String(fileName+_T(".ply")) : fileName, comments, bBinary);
-        ret &= SavePLY(String(fileName+_T(".ply")), comments, bBinary);
+    	if (ext == _T(".gltf"))
+            ret = SaveGLTF(String(baseFileName+_T(".gltf")), false);
+        else
+            ret = SaveGLTF(String(baseFileName+_T(".glb")), true);
+
+        ret &= SavePLY(String(baseFileName+_T(".ply")), comments, bBinary);
 	}
 	if (!ret)
 		return false;
