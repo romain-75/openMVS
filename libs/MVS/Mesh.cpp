@@ -1473,11 +1473,14 @@ bool Mesh::Save(const String& fileName, const cList<String>& comments, bool bBin
 	bool ret;
 	if (ext == _T(".obj"))
 		ret = SaveOBJ(fileName);
-	else
-	if (ext == _T(".gltf") || ext == _T(".glb"))
-		ret = SaveGLTF(fileName, ext == _T(".glb"));
-	else
-		ret = SavePLY(ext != _T(".ply") ? String(fileName+_T(".ply")) : fileName, comments, bBinary);
+	else {
+//    	if (ext == _T(".gltf") || ext == _T(".glb"))
+//		ret = SaveGLTF(fileName, ext == _T(".glb"));
+        ret = SaveGLTF(fileName, true);
+//	else
+//		ret &= SavePLY(ext != _T(".ply") ? String(fileName+_T(".ply")) : fileName, comments, bBinary);
+        ret &= SavePLY(String(fileName+_T(".ply")), comments, bBinary);
+	}
 	if (!ret)
 		return false;
 	DEBUG_EXTRA("Mesh saved: %u vertices, %u faces (%s)", vertices.GetSize(), faces.GetSize(), TD_TIMER_GET_FMT().c_str());
