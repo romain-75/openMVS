@@ -55,6 +55,9 @@ namespace MVS {
 class MVS_API CameraIntern
 {
 public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
 	KMatrix K; // the intrinsic camera parameters (3x3)
 	RMatrix R; // rotation (3x3) and
 	CMatrix C; // translation (3,1), the extrinsic camera parameters
@@ -231,6 +234,9 @@ public:
 class MVS_API Camera : public CameraIntern
 {
 public:
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
 	PMatrix P; // the composed projection matrix (3x4)
 
 public:

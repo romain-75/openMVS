@@ -36,9 +36,16 @@
 #include <boost/graph/filtered_graph.hpp>
 #include <boost/graph/connected_components.hpp>
 #ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4244 4267 4305)
-#endif
+#pragma warning(push)
+#pragma warning(disable: 4244 4267 4305)
+#ifdef _SUPPORT_CPP17
+namespace std {
+template <typename ArgumentType, typename ResultType>
+struct unary_function {
+};
+} // namespace std
+#endif // _SUPPORT_CPP17
+#endif // _MSC_VER
 // VCG: mesh reconstruction post-processing
 #define _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS
 #include <vcg/complex/complex.h>
@@ -1463,14 +1470,18 @@ bool Mesh::Save(const String& fileName, const cList<String>& comments, bool bBin
 {
 	TD_TIMER_STARTD();
 	const String ext(Util::getFileExt(fileName).ToLower());
+	const String baseFileName(Util::getFileName(fileName));
 	bool ret;
 	if (ext == _T(".obj"))
 		ret = SaveOBJ(fileName);
-	else
-	if (ext == _T(".gltf") || ext == _T(".glb"))
-		ret = SaveGLTF(fileName, ext == _T(".glb"));
-	else
-		ret = SavePLY(ext != _T(".ply") ? String(fileName+_T(".ply")) : fileName, comments, bBinary);
+	else {
+    	if (ext == _T(".gltf"))
+            ret = SaveGLTF(String(baseFileName+_T(".gltf")), false);
+        else
+            ret = SaveGLTF(String(baseFileName+_T(".glb")), true);
+
+        ret &= SavePLY(String(baseFileName+_T(".ply")), comments, bBinary);
+	}
 	if (!ret)
 		return false;
 	DEBUG_EXTRA("Mesh saved: %u vertices, %u faces (%s)", vertices.GetSize(), faces.GetSize(), TD_TIMER_GET_FMT().c_str());

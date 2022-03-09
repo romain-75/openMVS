@@ -8,6 +8,7 @@
 #ifndef __SEACAVE_PLANE_H__
 #define __SEACAVE_PLANE_H__
 
+#include <Eigen/StdVector>
 
 // I N C L U D E S /////////////////////////////////////////////////
 
@@ -100,7 +101,7 @@ public:
 	typedef SEACAVE::TSphere<TYPE,3> SPHERE;
 	typedef SEACAVE::TAABB<TYPE,3> AABB;
 
-	PLANE	m_planes[DIMS];	// left, right, top, bottom, near and far planes
+	std::vector<PLANE,Eigen::aligned_allocator<PLANE> > m_planes;	// left, right, top, bottom, near and far planes
 
 	//---------------------------------------
 
