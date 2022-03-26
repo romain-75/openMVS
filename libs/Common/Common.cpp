@@ -11,6 +11,33 @@
 
 #include "Common.h"
 
+void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, int chaine3, std::string chaine4, bool logEvenementiel){
+
+    static time_t precedentLog = time(nullptr);
+    time_t tempsActuel = time(nullptr);
+
+    if (logEvenementiel || tempsActuel-precedentLog >= 5){ // toutes les 5 secondes minimum, sauf log evenementiel
+
+        if (!logEvenementiel)
+            precedentLog = tempsActuel;
+
+        std::string chaine3_txt = std::to_string(chaine3);
+
+#ifdef __APPLE__
+        std::string commande = "python logger-tns-MARS.py "+nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\" &";
+#else
+#ifdef _WIN32
+        //std::string commande = "python3.exe logger-tns-MARS.py "+nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\"";
+        //std::string commande = "start \"\" cmd /c python3.exe logger-tns-MARS.py "+nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\"";
+        std::string commande = "start \"\" python.exe logger-tns-MARS.py "+nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\"";
+#else
+        std::string commande = "python3 logger-tns-MARS.py " +nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\" &";
+#endif
+#endif
+        system(commande.c_str());
+    }
+}
+
 namespace SEACAVE {
 #if TD_VERBOSE == TD_VERBOSE_ON
 int g_nVerbosityLevel(2);

@@ -45,6 +45,8 @@
 
 #include <opencv2/core/eigen.hpp>
 
+extern void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, int chaine3, std::string chaine4, bool logEvenementiel);
+
 using namespace MVS;
 
 
@@ -874,6 +876,7 @@ bool Scene::ReconstructMesh(float distInsert, bool bUseFreeSpaceSupport, unsigne
 			}
 			// update point visibility info
 			hint->info().InsertViews(pointcloud, idx);
+			outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 			++progress;
 		});
 		progress.close();
@@ -1016,6 +1019,7 @@ bool Scene::ReconstructMesh(float distInsert, bool bUseFreeSpaceSupport, unsigne
 				vert.viewsInfo[v].cell2End = inter.facet.first;
 				#endif
 			}
+			outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 			++progress;
 		}
 		progress.close();

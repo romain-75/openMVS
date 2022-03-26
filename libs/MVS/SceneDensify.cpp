@@ -38,6 +38,7 @@
 
 using namespace MVS;
 
+extern void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, int chaine3, std::string chaine4, bool logEvenementiel);
 
 // D E F I N E S ///////////////////////////////////////////////////
 
@@ -1562,12 +1563,12 @@ void DenseDepthMapData::SignalCompleteDepthmapFilter()
 static void* DenseReconstructionEstimateTmp(void*);
 static void* DenseReconstructionFilterTmp(void*);
 
-bool Scene::DenseReconstruction(int nFusionMode)
+bool Scene::DenseReconstruction(int nFusionMode, int indexPremiereImage, int indexDerniereImage)
 {
 	DenseDepthMapData data(*this, nFusionMode);
 
 	// estimate depth-maps
-	if (!ComputeDepthMaps(data))
+	if (!ComputeDepthMaps(data, indexPremiereImage, indexDerniereImage))
 		return false;
 	if (ABS(nFusionMode) == 1)
 		return true;
@@ -1622,7 +1623,7 @@ bool Scene::DenseReconstruction(int nFusionMode)
 
 // do first half of dense reconstruction: depth map computation
 // results are saved to "data"
-bool Scene::ComputeDepthMaps(DenseDepthMapData& data)
+bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, int indexDerniereImage)
 {
 	// compute point-cloud from the existing mesh
 	if (pointcloud.IsEmpty() && !mesh.IsEmpty() && !ImagesHaveNeighbors()) {
@@ -1710,8 +1711,10 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data)
 		#endif
 			const IIndex idxImage(data.images[idx]);
 			ASSERT(imagesMap[idxImage] != NO_ID);
+			std::cout << "idxImage : " << idxImage << std::endl;
 			DepthData& depthData(data.depthMaps.arrDepthData[idxImage]);
-			if (!data.depthMaps.SelectViews(depthData)) {
+			if ( (indexPremiereImage == -1 || ( (int) idxImage >= indexPremiereImage && (int) idxImage <= indexDerniereImage)) && 
+			!data.depthMaps.SelectViews(depthData)) {
 				#ifdef DENSE_USE_OPENMP
 				#pragma omp critical
 				#endif
@@ -1975,6 +1978,7 @@ void Scene::DenseReconstructionEstimate(void* pData)
 				depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), data.nEstimationGeometricIter < 0 ? "dmap" : "geo.dmap"));
 			depthData.ReleaseImages();
 			depthData.Release();
+			        outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)data.progress->processed/(float)data.progress->total),data.progress->msg,false);
 			data.progress->operator++();
 			break; }
 
@@ -2070,7 +2074,7 @@ void Scene::DenseReconstructionFilter(void* pData)
 			// save filtered depth-map for this image
 			depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), "dmap"));
 			depthData.DecRef();
-			data.progress->operator++();
+outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)data.progress->processed/(float)data.progress->total),data.progress->msg,false);			data.progress->operator++();
 			break; }
 
 		case EVT_FAIL: {
@@ -2177,6 +2181,7 @@ void Scene::PointCloudFilter(int thRemove)
 			collector.Init(idxPoint, X, (int)views.size());
 			octree.Collect(collector, collector);
 		}
+		outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 		++progress;
 	}
 	progress.close();

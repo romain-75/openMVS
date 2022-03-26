@@ -98,8 +98,8 @@ public:
 	bool ExportChunks(const ImagesChunkArr& chunks, const String& path, ARCHIVE_TYPE type=ARCHIVE_DEFAULT) const;
 
 	// Dense reconstruction
-	bool DenseReconstruction(int nFusionMode=0);
-	bool ComputeDepthMaps(DenseDepthMapData& data);
+	bool DenseReconstruction(int nFusionMode, int indexPremiereImage, int indexDerniereImage);
+	bool ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, int indexDerniereImage);
 	void DenseReconstructionEstimate(void*);
 	void DenseReconstructionFilter(void*);
 	void PointCloudFilter(int thRemove=-1);

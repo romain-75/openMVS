@@ -37,6 +37,10 @@
 #include <boost/graph/filtered_graph.hpp>
 #include <boost/graph/connected_components.hpp>
 
+
+extern void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, int chaine3, std::string chaine4, bool logEvenementiel);
+
+
 using namespace MVS;
 
 
@@ -487,6 +491,7 @@ bool MeshTexture::ListCameraFaces(FaceDataViewArr& facesDatas, float fOutlierThr
 	for (int_t idx=0; idx<(int_t)images.GetSize(); ++idx) {
 		#pragma omp flush (bAbort)
 		if (bAbort) {
+    		outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 			++progress;
 			continue;
 		}
@@ -496,6 +501,7 @@ bool MeshTexture::ListCameraFaces(FaceDataViewArr& facesDatas, float fOutlierThr
 	#endif
 		Image& imageData = images[idxView];
 		if (!imageData.IsValid()) {
+		    outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 			++progress;
 			continue;
 		}
@@ -599,6 +605,7 @@ bool MeshTexture::ListCameraFaces(FaceDataViewArr& facesDatas, float fOutlierThr
 		}
 		#endif
 		}
+		outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 		++progress;
 	}
 	#ifdef TEXOPT_USE_OPENMP
