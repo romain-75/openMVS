@@ -1658,6 +1658,7 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 				#pragma omp critical
 				#endif
 				imagesMap[idxImage] = NO_ID;
+				std::cout << "Image " << idxImage << " ignoree" << std::endl;
 				continue;
 			}
 			// map image index
@@ -1711,14 +1712,18 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 		#endif
 			const IIndex idxImage(data.images[idx]);
 			ASSERT(imagesMap[idxImage] != NO_ID);
-			//std::cout << "idxImage : " << idxImage << std::endl;
+			//std::cout << "idxImage : " << idxImage << ", idx : " << idx << std::endl;
 			DepthData& depthData(data.depthMaps.arrDepthData[idxImage]);
-			if ( (indexPremiereImage == -1 || ( (int) idxImage >= indexPremiereImage && (int) idxImage <= indexDerniereImage)) && 
-			!data.depthMaps.SelectViews(depthData)) {
+			bool imageATraiter = data.depthMaps.SelectViews(depthData);
+			if (indexPremiereImage != -1 && ((int)idxImage < indexPremiereImage || (int)idxImage > indexDerniereImage))
+				imageATraiter = false;
+
+			if ( !imageATraiter){
 				#ifdef DENSE_USE_OPENMP
 				#pragma omp critical
 				#endif
 				invalidIDs.InsertSort(idx);
+				std::cout << "Image " << idxImage << " ignoree" << std::endl;
 			}
 		}
 		RFOREACH(i, invalidIDs) {
