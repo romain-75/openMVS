@@ -1711,7 +1711,7 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 		#endif
 			const IIndex idxImage(data.images[idx]);
 			ASSERT(imagesMap[idxImage] != NO_ID);
-			std::cout << "idxImage : " << idxImage << std::endl;
+			//std::cout << "idxImage : " << idxImage << std::endl;
 			DepthData& depthData(data.depthMaps.arrDepthData[idxImage]);
 			if ( (indexPremiereImage == -1 || ( (int) idxImage >= indexPremiereImage && (int) idxImage <= indexDerniereImage)) && 
 			!data.depthMaps.SelectViews(depthData)) {
@@ -1779,6 +1779,7 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 			data.depthMaps.pmCUDA->Init(true);
 		}
 		#endif // _USE_CUDA
+		std::cout << "nEstimationGeometricIters : " << OPTDENSE::nEstimationGeometricIters << std::endl;
 		while (++data.nEstimationGeometricIter < (int)OPTDENSE::nEstimationGeometricIters) {
 			// initialize the queue of images to be geometric processed
 			if (data.nEstimationGeometricIter+1 == (int)OPTDENSE::nEstimationGeometricIters)
@@ -1809,6 +1810,8 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 				const DepthData& depthData(data.depthMaps.arrDepthData[idx]);
 				if (!depthData.IsValid())
 					continue;
+				if ( indexPremiereImage != -1 && ( (int) idx < indexPremiereImage || (int) idx > indexDerniereImage))
+    				continue;
 				const String rawName(ComposeDepthFilePath(depthData.GetView().GetID(), "dmap"));
 				File::deleteFile(rawName);
 				File::renameFile(ComposeDepthFilePath(depthData.GetView().GetID(), "geo.dmap"), rawName);
