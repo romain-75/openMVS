@@ -61,6 +61,8 @@ int nProcessPriority;
 unsigned nMaxThreads;
 String strConfigFileName;
 boost::program_options::variables_map vm;
+int indexPremiereImage;
+int indexDerniereImage;
 } // namespace OPT
 
 // initialize and parse the command line parameters
@@ -101,6 +103,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 	unsigned nMinViewsFuse;
 	unsigned nEstimateColors;
 	unsigned nEstimateNormals;
+	int  nEstimationGeometricIters;
 	int nIgnoreMaskLabel;
 	boost::program_options::options_description config("Densify options");
 	config.add_options()
@@ -123,6 +126,9 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 		("fusion-mode", boost::program_options::value(&OPT::nFusionMode)->default_value(0), "depth map fusion mode (-2 - fuse disparity-maps, -1 - export disparity-maps only, 0 - depth-maps & fusion, 1 - export depth-maps only)")
 		("filter-point-cloud", boost::program_options::value(&OPT::thFilterPointCloud)->default_value(0), "filter dense point-cloud based on visibility (0 - disabled)")
 		("export-number-views", boost::program_options::value(&OPT::nExportNumViews)->default_value(0), "export points with >= number of views (0 - disabled)")
+		("indexPremiereImage", boost::program_options::value(&OPT::indexPremiereImage)->default_value(-1), "index de la premiere image traitee (-1 - disabled)")
+		("indexDerniereImage", boost::program_options::value(&OPT::indexDerniereImage)->default_value(-1), "index de de derniere image traitee (-1 - disabled)")
+		("nbIterationsGeometrique", boost::program_options::value(&nEstimationGeometricIters)->default_value(2), "nb iterations géométrique (0 - disabled)")
 		;
 
 	// hidden options, allowed both on command line and
@@ -200,6 +206,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 	OPTDENSE::nEstimateColors = nEstimateColors;
 	OPTDENSE::nEstimateNormals = nEstimateNormals;
 	OPTDENSE::nIgnoreMaskLabel = nIgnoreMaskLabel;
+	OPTDENSE::nEstimationGeometricIters = nEstimationGeometricIters;
 	if (!bValidConfig && !OPT::strDenseConfigFileName.empty())
 		OPTDENSE::oConfig.Save(OPT::strDenseConfigFileName);
 
@@ -297,7 +304,7 @@ int main(int argc, LPCTSTR* argv)
 		if (!OPT::strViewNeighborsFileName.empty())
 			scene.LoadViewNeighbors(MAKE_PATH_SAFE(OPT::strViewNeighborsFileName));
 		TD_TIMER_START();
-		if (!scene.DenseReconstruction(OPT::nFusionMode)) {
+		if (!scene.DenseReconstruction(OPT::nFusionMode,OPT::indexPremiereImage,OPT::indexDerniereImage)) {
 			if (ABS(OPT::nFusionMode) != 1)
 				return EXIT_FAILURE;
 			VERBOSE("Depth-maps estimated (%s)", TD_TIMER_GET_FMT().c_str());
