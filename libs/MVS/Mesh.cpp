@@ -1341,7 +1341,7 @@ bool Mesh::LoadPLY(const String& fileName)
 		}
 	}
 	if (vertices.IsEmpty() || faces.IsEmpty()) {
-		DEBUG_EXTRA("error: invalid PLY mesh file");
+		DEBUG_EXTRA("error: invalid PLY mesh file (no vertex or no face)");
 		return false;
 	}
 

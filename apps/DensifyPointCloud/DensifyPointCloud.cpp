@@ -63,6 +63,8 @@ String strConfigFileName;
 boost::program_options::variables_map vm;
 int indexPremiereImage;
 int indexDerniereImage;
+double profondeurMaximale;
+double hauteurMaximale;
 } // namespace OPT
 
 // initialize and parse the command line parameters
@@ -128,6 +130,8 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 		("export-number-views", boost::program_options::value(&OPT::nExportNumViews)->default_value(0), "export points with >= number of views (0 - disabled)")
 		("indexPremiereImage", boost::program_options::value(&OPT::indexPremiereImage)->default_value(-1), "index de la premiere image traitee (-1 - disabled)")
 		("indexDerniereImage", boost::program_options::value(&OPT::indexDerniereImage)->default_value(-1), "index de de derniere image traitee (-1 - disabled)")
+		("profondeurMaximale", boost::program_options::value(&OPT::profondeurMaximale)->default_value(-1.0), "profondeur maximale (-1 - disabled)")
+	    ("hauteurMaximale", boost::program_options::value(&OPT::hauteurMaximale)->default_value(-1.0), "hauteur maximale (-1 - disabled)")
 		("nbIterationsGeometrique", boost::program_options::value(&nEstimationGeometricIters)->default_value(2), "nb iterations géométrique (0 - disabled)")
 		;
 
@@ -304,7 +308,7 @@ int main(int argc, LPCTSTR* argv)
 		if (!OPT::strViewNeighborsFileName.empty())
 			scene.LoadViewNeighbors(MAKE_PATH_SAFE(OPT::strViewNeighborsFileName));
 		TD_TIMER_START();
-		if (!scene.DenseReconstruction(OPT::nFusionMode,OPT::indexPremiereImage,OPT::indexDerniereImage)) {
+		if (!scene.DenseReconstruction(OPT::nFusionMode,OPT::indexPremiereImage,OPT::indexDerniereImage, OPT::profondeurMaximale, OPT::hauteurMaximale)) {
 			if (ABS(OPT::nFusionMode) != 1)
 				return EXIT_FAILURE;
 			VERBOSE("Depth-maps estimated (%s)", TD_TIMER_GET_FMT().c_str());
