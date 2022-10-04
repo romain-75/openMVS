@@ -29,7 +29,7 @@ void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, 
 #ifdef _WIN32
         //std::string commande = "python3.exe logger-tns-MARS-Adapte.py "+nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\"";
         //std::string commande = "start \"\" cmd /c python3.exe logger-tns-MARS-Adapte.py "+nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\"";
-        std::string commande = "start \"\" python.exe logger-tns-MARS-Adapte.py "+nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\"";
+        std::string commande = "\"python.exe logger-tns-MARS-Adapte.py "+nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\"";
 #else
         std::string commande = "python3 logger-tns-MARS-Adapte.py " +nature+" "+chaine1+" "+chaine2+ " "+chaine3_txt+ " \""+chaine4+"\" &";
 #endif
