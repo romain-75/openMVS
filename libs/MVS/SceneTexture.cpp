@@ -605,7 +605,7 @@ bool MeshTexture::ListCameraFaces(FaceDataViewArr& facesDatas, float fOutlierThr
 		}
 		#endif
 		}
-		outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
+		outputLogSQL("ETAT","EXEC","TEXTURATION",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 		++progress;
 	}
 	#ifdef TEXOPT_USE_OPENMP
