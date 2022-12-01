@@ -121,8 +121,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 	unsigned nEstimationIters;
 	unsigned nEstimationGeometricIters;
 	unsigned nEstimateColors;
-	unsigned nEstimateNormals;
-	int  nEstimationGeometricIters;
+    unsigned nEstimateNormals;
 	unsigned nOptimize;
 	int nIgnoreMaskLabel;
 	bool bRemoveDmaps;
