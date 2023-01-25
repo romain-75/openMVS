@@ -1222,8 +1222,8 @@ constexpr double EPSILONTOLERANCE()			{ return 1e-10; }
 inline bool   ISZERO(float  x)				{ return ABS(x) < FZERO_TOLERANCE; }
 inline bool   ISZERO(double x)				{ return ABS(x) < ZERO_TOLERANCE; }
 
-inline bool   ISEQUAL(float  x, float  v)	{ return ABS(x-v) < FZERO_TOLERANCE; }
-inline bool   ISEQUAL(double x, double v)	{ return ABS(x-v) < ZERO_TOLERANCE; }
+inline bool   ISEQUAL(float  x, float  v)	{ return std::fabs(x-v) < FZERO_TOLERANCE; }
+inline bool   ISEQUAL(double x, double v)	{ return std::fabs(x-v) < ZERO_TOLERANCE; }
 
 inline float  INVZERO(float)				{ return FINV_ZERO; }
 inline double INVZERO(double)				{ return INV_ZERO; }

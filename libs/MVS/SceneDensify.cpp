@@ -339,8 +339,10 @@ bool DepthMapsData::InitViews(DepthData& depthData, IIndex idxNeighbor, IIndex n
 		FOREACH(idx, depthData.neighbors) {
 			const ViewScore& neighbor = depthData.neighbors[idx];
 			if ((numNeighbors && depthData.images.GetSize() > numNeighbors) ||
-				(neighbor.score < fMinScore))
+                (neighbor.score < fMinScore))
 				break;
+            if (neighbor.idx.scale < 0.)
+                continue;
 			DepthData::ViewData& viewTrg = depthData.images.AddEmpty();
 			viewTrg.pImageData = &scene.images[neighbor.idx.ID];
 			viewTrg.scale = neighbor.idx.scale;

@@ -838,7 +838,7 @@ bool Scene::SelectNeighborViews(uint32_t ID, IndexArr& points, unsigned nMinView
 			wROI = 0.7f;
 		}
 		const Depth depth((float)imageData.camera.PointDepth(point));
-		ASSERT(depth > 0);
+        //ASSERT(depth > 0);
 		if (depth <= 0)
 			continue;
 		// store this point
