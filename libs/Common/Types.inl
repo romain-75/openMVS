@@ -3080,6 +3080,7 @@ bool TImage<TYPE>::Save(const String& fileName) const
 }
 /*----------------------------------------------------------------*/
 
+#ifndef _RELEASE
 template <typename TYPE>
 void TImage<TYPE>::Show(const String& winname, int delay, bool bDestroy) const
 {
@@ -3089,6 +3090,7 @@ void TImage<TYPE>::Show(const String& winname, int delay, bool bDestroy) const
 		cv::destroyWindow(winname);
 }
 /*----------------------------------------------------------------*/
+#endif
 
 
 // C L A S S  //////////////////////////////////////////////////////

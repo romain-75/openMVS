@@ -1092,9 +1092,7 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 						for (boost::tie(ei, eie) = boost::out_edges(f, graph); ei != eie; ++ei) {
 							ASSERT(f == (FIndex)ei->m_source);
 							const FIndex fAdj((FIndex)ei->m_target);
-							//ASSERT(components.empty() || components[f] == components[fAdj]);
-							if(! components.empty() && (components[f] != components[fAdj]))
-    							continue ;
+							ASSERT(components.empty() || components[f] == components[fAdj]);
 							if (f < fAdj) // add edges only once
 								inference.SetNeighbors(f, fAdj);
 						}
@@ -1191,9 +1189,7 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 						for (boost::tie(ei, eie) = boost::out_edges(f, graph); ei != eie; ++ei) {
 							ASSERT(f == (FIndex)ei->m_source);
 							const FIndex fAdj((FIndex)ei->m_target);
-							//ASSERT(components.empty() || components[f] == components[fAdj]);
-							if(! components.empty() && (components[f] != components[fAdj]))
-    							continue ;
+							ASSERT(components.empty() || components[f] == components[fAdj]);
 							if (f < fAdj) // add edges only once
 								inference.SetNeighbors(f, fAdj);
 						}
@@ -1401,9 +1397,7 @@ void MeshTexture::CreateSeamVertices()
 		ASSERT(edge.i < edge.j);
 		const uint32_t idxPatch0(mapIdxPatch[components[edge.i]]);
 		const uint32_t idxPatch1(mapIdxPatch[components[edge.j]]);
-		//ASSERT(idxPatch0 != idxPatch1 || idxPatch0 == numPatches);
-		if(idxPatch0 == idxPatch1 && idxPatch0 != numPatches)
-		    continue;
+		ASSERT(idxPatch0 != idxPatch1 || idxPatch0 == numPatches);
 		if (idxPatch0 == idxPatch1)
 			continue;
 		seamVertices.ReserveExtra(2);
@@ -1564,9 +1558,7 @@ void MeshTexture::GlobalSeamLeveling()
 				ASSERT(idxPatch0 < idxPatch1);
 				const MatIdx rowA((MatIdx)coeffB.GetSize());
 				coeffB.Insert(color1 - color0);
-				//ASSERT(ISFINITE(coeffB.Last()));
-				if (! ISFINITE(coeffB.Last()))
-    				continue;
+				ASSERT(ISFINITE(coeffB.Last()));
 				rows.emplace_back(rowA, col0,  1.f);
 				rows.emplace_back(rowA, col1, -1.f);
 			}

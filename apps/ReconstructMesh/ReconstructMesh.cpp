@@ -443,12 +443,9 @@ int main(int argc, LPCTSTR* argv)
 			VERBOSE("Mesh trimmed to ROI: %u vertices and %u faces removed (%s)",
 				numVertices-scene.mesh.vertices.size(), numFaces-scene.mesh.faces.size(), TD_TIMER_GET_FMT().c_str());
 		}
-        //scene.mesh.Save(baseFileName+_T("_1.ply"));
 		const float fDecimate(OPT::nTargetFaceNum ? static_cast<float>(OPT::nTargetFaceNum) / scene.mesh.faces.size() : OPT::fDecimateMesh);
 		scene.mesh.Clean(fDecimate, OPT::fRemoveSpurious, OPT::bRemoveSpikes, OPT::nCloseHoles, OPT::nSmoothMesh, OPT::fEdgeLength, false);
-        //scene.mesh.Save(baseFileName+_T("_2.ply"));
-        scene.mesh.Clean(1.f, 0.f, OPT::bRemoveSpikes, OPT::nCloseHoles, 0u, 0.f, false); // extra cleaning trying to close more holes
-        //scene.mesh.Save(baseFileName+_T("_3.ply"));
+		scene.mesh.Clean(1.f, 0.f, OPT::bRemoveSpikes, OPT::nCloseHoles, 0u, 0.f, false); // extra cleaning trying to close more holes
 		scene.mesh.Clean(1.f, 0.f, false, 0u, 0u, 0.f, true); // extra cleaning to remove non-manifold problems created by closing holes
 		scene.obb = initialOBB;
 

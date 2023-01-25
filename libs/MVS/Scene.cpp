@@ -839,8 +839,10 @@ bool Scene::SelectNeighborViews(uint32_t ID, IndexArr& points, unsigned nMinView
 		}
 		const Depth depth((float)imageData.camera.PointDepth(point));
         //ASSERT(depth > 0);
-		if (depth <= 0)
-			continue;
+		ASSERT(depth > 0);
+		//if (depth <= 0)
+		//	continue;
+		
 		// store this point
 		if (views.size() >= nMinPointViews)
 			points.push_back((uint32_t)idx);

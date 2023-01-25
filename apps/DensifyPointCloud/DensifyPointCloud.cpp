@@ -121,7 +121,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 	unsigned nEstimationIters;
 	unsigned nEstimationGeometricIters;
 	unsigned nEstimateColors;
-    unsigned nEstimateNormals;
+	unsigned nEstimateNormals;
 	unsigned nOptimize;
 	int nIgnoreMaskLabel;
 	bool bRemoveDmaps;
@@ -137,7 +137,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 		("sub-resolution-levels", boost::program_options::value(&nSubResolutionLevels)->default_value(2), "number of patch-match sub-resolution iterations (0 - disabled)")
 		("number-views", boost::program_options::value(&nNumViews)->default_value(nNumViewsDefault), "number of views used for depth-map estimation (0 - all neighbor views available)")
 		("number-views-fuse", boost::program_options::value(&nMinViewsFuse)->default_value(3), "minimum number of images that agrees with an estimate during fusion in order to consider it inlier (<2 - only merge depth-maps)")
-		("ignore-mask-label", boost::program_options::value(&nIgnoreMaskLabel)->default_value(-1), "integer value for the label to ignore in the segmentation mask (<0 - disabled)")
+		("ignore-mask-label", boost::program_options::value(&nIgnoreMaskLabel)->default_value(-1), "integer value for the label to ignore in the segmentation mask; the mask for each image is stored in the MVS scene or next to each image with '.mask.png' extension (<0 - disabled)")
 		("iters", boost::program_options::value(&nEstimationIters)->default_value(numIters), "number of patch-match iterations")
 		("geometric-iters", boost::program_options::value(&nEstimationGeometricIters)->default_value(2), "number of geometric consistent patch-match iterations (0 - disabled)")
 		("estimate-colors", boost::program_options::value(&nEstimateColors)->default_value(2), "estimate the colors for the dense point-cloud (0 - disabled, 1 - final, 2 - estimate)")
@@ -241,7 +241,6 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 	OPTDENSE::nEstimateNormals = nEstimateNormals;
 	OPTDENSE::nOptimize = nOptimize;
 	OPTDENSE::nIgnoreMaskLabel = nIgnoreMaskLabel;
-	OPTDENSE::nEstimationGeometricIters = nEstimationGeometricIters;
 	OPTDENSE::bRemoveDmaps = bRemoveDmaps;
 	if (!bValidConfig && !OPT::strDenseConfigFileName.empty())
 		OPTDENSE::oConfig.Save(OPT::strDenseConfigFileName);
