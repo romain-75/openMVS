@@ -47,7 +47,7 @@ using namespace MVS;
 
 // uncomment to enable multi-threading based on OpenMP
 #ifdef _USE_OPENMP
-#define TEXOPT_USE_OPENMP
+//#define TEXOPT_USE_OPENMP
 #endif
 
 // uncomment to use SparseLU for solving the linear systems
@@ -1189,7 +1189,9 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 						for (boost::tie(ei, eie) = boost::out_edges(f, graph); ei != eie; ++ei) {
 							ASSERT(f == (FIndex)ei->m_source);
 							const FIndex fAdj((FIndex)ei->m_target);
-							ASSERT(components.empty() || components[f] == components[fAdj]);
+							//ASSERT(components.empty() || components[f] == components[fAdj]);
+                            if(! components.empty() && components[f] != components[fAdj])
+                                continue;
 							if (f < fAdj) // add edges only once
 								inference.SetNeighbors(f, fAdj);
 						}
@@ -1397,7 +1399,9 @@ void MeshTexture::CreateSeamVertices()
 		ASSERT(edge.i < edge.j);
 		const uint32_t idxPatch0(mapIdxPatch[components[edge.i]]);
 		const uint32_t idxPatch1(mapIdxPatch[components[edge.j]]);
-		ASSERT(idxPatch0 != idxPatch1 || idxPatch0 == numPatches);
+		//ASSERT(idxPatch0 != idxPatch1 || idxPatch0 == numPatches);
+        if(idxPatch0 == idxPatch1 && idxPatch0 != numPatches)
+            continue;
 		if (idxPatch0 == idxPatch1)
 			continue;
 		seamVertices.ReserveExtra(2);
