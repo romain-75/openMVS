@@ -2073,9 +2073,13 @@ void Scene::DenseReconstructionEstimate(void* pData)
 				}
 			}
 			#endif
-			// save compute depth-map for this image
-			if (!depthData.depthMap.empty())
-				depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), data.nEstimationGeometricIter < 0 ? "dmap" : "geo.dmap"));
+			// save compute depth-map for this image			
+			if (!depthData.depthMap.empty()){
+				depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), data.nEstimationGeometricIter < 0 ? "dmap" :
+				 "geo.dmap"));
+				 ExportPointCloud(ComposeDepthFilePath(depthData.GetView().GetID(), "ply"), *depthData.images.First().pImageData, depthData.depthMap, depthData.normalMap);
+			}
+
 			depthData.ReleaseImages();
 			depthData.Release();
 			        outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)data.progress->processed/(float)data.progress->total),data.progress->msg,false);
