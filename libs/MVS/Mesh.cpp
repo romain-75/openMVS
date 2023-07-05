@@ -1551,6 +1551,7 @@ bool Mesh::LoadPLY(const String& fileName)
 		}
 	}
 	if (vertices.IsEmpty() || faces.IsEmpty()) {
+		Release();
 		DEBUG_EXTRA("error: invalid mesh file");
 		return false;
 	}
@@ -4280,7 +4281,7 @@ void Mesh::ProjectOrtho(const Camera& camera, DepthMap& depthMap) const
 			: Base(_vertices, _camera, _depthMap) {}
 		inline bool ProjectVertex(const Mesh::Vertex& pt, int v) {
 			return (ptc[v] = camera.TransformPointW2C(Cast<REAL>(pt))).z > 0 &&
-				depthMap.isInsideWithBorder<float,3>(pti[v] = camera.TransformPointC2I(Point2(ptc[v].x,ptc[v].y)));
+				depthMap.isInsideWithBorder<float,3>(pti[v] = camera.TransformPointOrthoC2I(ptc[v]));
 		}
 		void Raster(const ImageRef& pt, const Point3f& bary) {
 			const Depth z(ComputeDepth(bary));
@@ -4312,7 +4313,7 @@ void Mesh::ProjectOrtho(const Camera& camera, DepthMap& depthMap, Image8U3& imag
 		}
 		inline bool ProjectVertex(const Mesh::Vertex& pt, int v) {
 			return (ptc[v] = camera.TransformPointW2C(Cast<REAL>(pt))).z > 0 &&
-				depthMap.isInsideWithBorder<float,3>(pti[v] = camera.TransformPointC2I(Point2(ptc[v].x,ptc[v].y)));
+				depthMap.isInsideWithBorder<float,3>(pti[v] = camera.TransformPointOrthoC2I(ptc[v]));
 		}
 		void Raster(const ImageRef& pt, const Point3f& bary) {
 			const Depth z(ComputeDepth(bary));
@@ -4568,7 +4569,7 @@ bool Mesh::TransferTexture(Mesh& mesh, const FaceIdxArr& faceSubsetIndices, unsi
 			inline bool Intersects(const Octree::POINT_TYPE& center, Octree::Type radius) const {
 				return ray.Intersects(AABB3f(center, radius));
 			}
-			void operator () (const Octree::IDX_TYPE* idices, Octree::IDX_TYPE size) {
+			void operator() (const Octree::IDX_TYPE* idices, Octree::IDX_TYPE size) {
 				// store all contained faces only once
 				std::unordered_set<FIndex> set;
 				FOREACHRAWPTR(pIdx, idices, size) {

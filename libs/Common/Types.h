@@ -2808,6 +2808,7 @@ protected:
 
 #endif // _USE_EIGEN
 
+#include "../Math/LMFit/lmmin.h"
 #include "Types.inl"
 #include "Util.inl"
 #include "Rotation.h"
@@ -2816,6 +2817,7 @@ protected:
 #include "OBB.h"
 #include "Plane.h"
 #include "Ray.h"
+#include "Line.h"
 #include "Octree.h"
 #include "UtilCUDA.h"
 
