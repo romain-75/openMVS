@@ -1,4 +1,11 @@
 # Find required packages
+
+FIND_PACKAGE(VCG REQUIRED)
+if(VCG_FOUND)
+	include_directories("/3d/vcglib")
+	add_definitions(${VCG_DEFINITIONS})
+endif()
+
 FIND_PACKAGE(CGAL REQUIRED)
 if(CGAL_FOUND)
 	include_directories(${CGAL_INCLUDE_DIRS})

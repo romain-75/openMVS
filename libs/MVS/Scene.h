@@ -122,10 +122,11 @@ public:
 	PointCloud BuildTowerMesh(const PointCloud& origPointCloud, const Point2f& centerPoint, const float fRadius, const float fROIRadius, const float zMin, const float zMax, const float minCamZ, bool bFixRadius = false);
 	
 	// Dense reconstruction
-	bool DenseReconstruction(int nFusionMode=0, bool bCrop2ROI=true, float fBorderROI=0);
-	bool ComputeDepthMaps(DenseDepthMapData& data);
-	void DenseReconstructionEstimate(void*);
-	void DenseReconstructionFilter(void*);
+	bool DenseReconstruction(int nFusionMode=0, bool bCrop2ROI=true, float fBorderROI=0, int indexPremiereImage=-1, int indexDerniereImage=-1, double profondeurMaximale=-1.0, double hauteurMaximale=-1.0);
+    bool ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, int indexDerniereImage, double profondeurMaximale, double hauteurMaximale);
+ 	void DenseReconstructionEstimate(void*);
+    void DenseReconstructionFilter(void*, double profondeurMaximale=-1.0, double hauteurMaximale=-1.0);
+    //void DenseReconstructionFilter(void*);
 	void PointCloudFilter(int thRemove=-1);
 
 	// Mesh reconstruction
