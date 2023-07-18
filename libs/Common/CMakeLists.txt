@@ -12,7 +12,11 @@ IF(CMAKE_VERSION VERSION_GREATER_EQUAL 3.16.0)
 endif()
 
 # Link its dependencies
-TARGET_LINK_LIBRARIES(Common ${Boost_LIBRARIES} ${OpenCV_LIBS})
+if (win32)
+	TARGET_LINK_LIBRARIES(Common ${OpenCV_LIBS})
+else(win32)
+	TARGET_LINK_LIBRARIES(Common ${Boost_LIBRARIES} ${OpenCV_LIBS})
+endif(win32)
 
 # Install
 SET_TARGET_PROPERTIES(Common PROPERTIES
