@@ -51,7 +51,9 @@ namespace MVS {
 // (as opposite to standard form t which is negated and has the rotation of the camera already applied P = K[R|t]);
 // the world and camera coordinates system is right handed,
 // with x pointing right, y pointing down, and z pointing forward
-// (see: R. Hartley, "Multiple View Geometry," 2004, pp. 156.)
+// (see: R. Hartley, "Multiple View Geometry," 2004, pp. 156.);
+// the projection in image coordinates uses the convention that the center of a pixel is defined at integer coordinates,
+// i.e. the center is at (0, 0) and the top left corner is at (-0.5, -0.5)
 class MVS_API CameraIntern
 {
 public:
@@ -204,16 +206,10 @@ public:
 
 	// normalize inhomogeneous 2D point by the given camera intrinsics K
 	// K is assumed to be the [3,3] triangular matrix with: fx, fy, s, cx, cy and scale 1
-	template<typename TYPE1, typename TYPE2, typename TYPE3>
-	static inline void NormalizeProjection(const TYPE1* K, const TYPE2* x, TYPE3* n) {
-		n[0] = TYPE3(K[0]*x[0] + K[1]*x[1] + K[2]);
-		n[1] = TYPE3(            K[4]*x[1] + K[5]);
-	}
 	template <typename TYPE>
 	inline TPoint2<TYPE> NormalizeProjection(const TPoint2<TYPE>& proj) const {
 		TPoint2<TYPE> pt;
-		const TMatrix<TYPE,3,3> invK(GetInvK<TYPE>());
-		NormalizeProjection(invK.val, proj.ptr(), pt.ptr());
+		NormalizeProjectionInv(GetInvK<TYPE>(), proj.ptr(), pt.ptr());
 		return pt;
 	}
 
@@ -412,6 +408,43 @@ public:
 		return TransformPointOrthoC2I(TransformPointW2C(X));
 	}
 
+	// compute the projection scale in this camera of the given world point
+	template <typename TYPE>
+	inline TYPE GetFootprintImage(const TPoint3<TYPE>& X) const {
+		#if 0
+		const TYPE fSphereRadius(1);
+		const TPoint3<TYPE> camX(TransformPointW2C(X));
+		return norm(TransformPointC2I(TPoint3<TYPE>(camX.x+fSphereRadius,camX.y,camX.z))-TransformPointC2I(camX));
+		#else
+		return static_cast<TYPE>(GetFocalLength() / PointDepth(X));
+		#endif
+	}
+	// compute the surface the projected pixel covers at the given depth
+	template <typename TYPE>
+	inline TYPE GetFootprintWorldSq(const TPoint2<TYPE>& x, TYPE depth) const {
+		#if 0
+		return SQUARE(GetFocalLength());
+		#else
+		// improved version of the above
+		return SQUARE(depth) / (SQUARE(GetFocalLength()) + normSq(TransformPointI2V(x)));
+		#endif
+	}
+	template <typename TYPE>
+	inline TYPE GetFootprintWorld(const TPoint2<TYPE>& x, TYPE depth) const {
+		return depth / SQRT(SQUARE(GetFocalLength()) + normSq(TransformPointI2V(x)));
+	}
+	// same as above, but the 3D point is given
+	template <typename TYPE>
+	inline TYPE GetFootprintWorldSq(const TPoint3<TYPE>& X) const {
+		const TPoint3<TYPE> camX(TransformPointW2C(X));
+		return GetFootprintWorldSq(TPoint2<TYPE>(camX.x/camX.z,camX.y/camX.z), camX.z);
+	}
+	template <typename TYPE>
+	inline TYPE GetFootprintWorld(const TPoint3<TYPE>& X) const {
+		const TPoint3<TYPE> camX(TransformPointW2C(X));
+		return GetFootprintWorld(TPoint2<TYPE>(camX.x/camX.z,camX.y/camX.z), camX.z);
+	}
+
 	#ifdef _USE_BOOST
 	// implement BOOST serialization
 	template<class Archive>
@@ -426,13 +459,14 @@ public:
 	BOOST_SERIALIZATION_SPLIT_MEMBER()
 	#endif
 };
-typedef SEACAVE::cList<Camera, const Camera&, 0> CameraArr;
+typedef CLISTDEF0IDX(Camera,uint32_t) CameraArr;
 /*----------------------------------------------------------------*/
 
 MVS_API void DecomposeProjectionMatrix(const PMatrix& P, KMatrix& K, RMatrix& R, CMatrix& C);
 MVS_API void DecomposeProjectionMatrix(const PMatrix& P, RMatrix& R, CMatrix& C);
 MVS_API void AssembleProjectionMatrix(const KMatrix& K, const RMatrix& R, const CMatrix& C, PMatrix& P);
 MVS_API void AssembleProjectionMatrix(const RMatrix& R, const CMatrix& C, PMatrix& P);
+MVS_API Point3 ComputeCamerasFocusPoint(const CameraArr& cameras, const Point3* pInitialFocus=NULL);
 /*----------------------------------------------------------------*/
 
 } // namespace MVS

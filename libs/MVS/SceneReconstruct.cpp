@@ -775,7 +775,7 @@ float computePlaneSphereAngle(const delaunay_t& Tr, const facet_t& facet)
 // Next, the score is computed for all the edges of the directed graph composed of points as vertices.
 // Finally, graph-cut algorithm is used to split the tetrahedrons in inside and outside,
 // and the surface is such extracted.
-bool Scene::ReconstructMesh(float distInsert, bool bUseFreeSpaceSupport, unsigned nItersFixNonManifold,
+bool Scene::ReconstructMesh(float distInsert, bool bUseFreeSpaceSupport, bool bUseOnlyROI, unsigned nItersFixNonManifold,
 							float kSigma, float kQual, float kb,
 							float kf, float kRel, float kAbs, float kOutl,
 							float kInf
@@ -796,8 +796,12 @@ bool Scene::ReconstructMesh(float distInsert, bool bUseFreeSpaceSupport, unsigne
 		std::vector<point_t> vertices(pointcloud.points.GetSize());
 		std::vector<std::ptrdiff_t> indices(pointcloud.points.GetSize());
 		// fetch points
+		if (bUseOnlyROI && !IsBounded())
+			bUseOnlyROI = false;
 		FOREACH(i, pointcloud.points) {
 			const PointCloud::Point& X(pointcloud.points[i]);
+			if (bUseOnlyROI && !obb.Intersects(X))
+				continue;
 			vertices[i] = point_t(X.x, X.y, X.z);
 			indices[i] = i;
 		}
@@ -1108,10 +1112,11 @@ bool Scene::ReconstructMesh(float distInsert, bool bUseFreeSpaceSupport, unsigne
 		// create graph
 		MaxFlow<cell_size_t,edge_cap_t> graph(delaunay.number_of_cells());
 		// set weights
+		constexpr edge_cap_t maxCap(FLT_MAX*0.0001f);
 		for (delaunay_t::All_cells_iterator ci=delaunay.all_cells_begin(), ce=delaunay.all_cells_end(); ci!=ce; ++ci) {
 			const cell_size_t ciID(ci->info());
 			const cell_info_t& ciInfo(infoCells[ciID]);
-			graph.AddNode(ciID, ciInfo.s, ciInfo.t);
+			graph.AddNode(ciID, ciInfo.s, MINF(ciInfo.t, maxCap));
 			for (int i=0; i<4; ++i) {
 				const cell_handle_t cj(ci->neighbor(i));
 				const cell_size_t cjID(cj->info());

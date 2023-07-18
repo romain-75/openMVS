@@ -62,6 +62,7 @@ public:
 		   void InsertFull(const POINT&);
 		   void Insert(const POINT&);
 		   void Insert(const TAABB&);
+		   void BoundBy(const TAABB&);
 
 	inline void Translate(const POINT&);
 	inline void Transform(const MATRIX&);
@@ -88,6 +89,17 @@ public:
 
 	inline TYPE& operator [] (BYTE i) { ASSERT(i<numScalar); return ptMin.data()[i]; }
 	inline TYPE operator [] (BYTE i) const { ASSERT(i<numScalar); return ptMin.data()[i]; }
+
+	friend std::ostream& operator << (std::ostream& st, const TAABB& obb) {
+		st << obb.ptMin; st << std::endl;
+		st << obb.ptMax; st << std::endl;
+		return st;
+	}
+	friend std::istream& operator >> (std::istream& st, TAABB& obb) {
+		st >> obb.ptMin;
+		st >> obb.ptMax;
+		return st;
+	}
 
 	#ifdef _USE_BOOST
 	// implement BOOST serialization

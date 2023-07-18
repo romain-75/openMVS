@@ -71,7 +71,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 	// group of options allowed only on command line
 	boost::program_options::options_description generic("Generic options");
 	generic.add_options()
-		("help,h", "produce this help message")
+		("help,h", "imports SfM scene stored either in Metashape Agisoft/BlocksExchange or ContextCapture BlocksExchange XML format")
 		("working-folder,w", boost::program_options::value<std::string>(&WORKING_FOLDER), "working directory (default current directory)")
 		("config-file,c", boost::program_options::value<std::string>(&OPT::strConfigFileName)->default_value(APPNAME _T(".cfg")), "file name containing program options")
 		("archive-type", boost::program_options::value(&OPT::nArchiveType)->default_value(ARCHIVE_MVS), "project archive type: 0-text, 1-binary, 2-compressed binary")
@@ -93,7 +93,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 	config.add_options()
 		("input-file,i", boost::program_options::value<std::string>(&OPT::strInputFileName), "input filename containing camera poses and image list")
 		("points-file,p", boost::program_options::value<std::string>(&OPT::strPointsFileName), "input filename containing the 3D points")
-		("output-file,o", boost::program_options::value<std::string>(&OPT::strOutputFileName), "output filename for storing the mesh")
+		("output-file,o", boost::program_options::value<std::string>(&OPT::strOutputFileName), "output filename for storing the scene")
 		("output-image-folder", boost::program_options::value<std::string>(&OPT::strOutputImageFolder)->default_value("undistorted_images"), "output folder to store undistorted images")
 		;
 
@@ -133,9 +133,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 	// validate input
 	Util::ensureValidPath(OPT::strPointsFileName);
 	Util::ensureValidPath(OPT::strInputFileName);
-	Util::ensureValidPath(OPT::strOutputImageFolder);
-	Util::ensureFolderSlash(OPT::strOutputImageFolder);
-	const String strInputFileNameExt(Util::getFileExt(OPT::strInputFileName).ToLower());
+	Util::ensureValidFolderPath(OPT::strOutputImageFolder);
 	const bool bInvalidCommand(OPT::strInputFileName.empty());
 	if (OPT::vm.count("help") || bInvalidCommand) {
 		boost::program_options::options_description visible("Available options");
@@ -147,8 +145,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 
 	// initialize optional options
 	Util::ensureValidPath(OPT::strOutputFileName);
-	Util::ensureUnifySlash(OPT::strOutputFileName);
-	if (OPT::strOutputFileName.IsEmpty())
+	if (OPT::strOutputFileName.empty())
 		OPT::strOutputFileName = Util::getFileName(OPT::strInputFileName) + MVS_EXT;
 
 	// initialize global options
@@ -186,6 +183,7 @@ struct DistCoeff {
 		};
 	};
 	DistCoeff() : k1(0), k2(0), p1(0), p2(0), k3(0), k4(0), k5(0), k6(0) {}
+	bool HasDistortion() const { return k1 != 0 || k2 != 0 || k3 != 0 || k4 != 0 || k5 != 0 || k6 != 0; }
 };
 typedef cList<DistCoeff> DistCoeffs;
 typedef cList<DistCoeffs> PlatformDistCoeffs;
@@ -231,24 +229,11 @@ void ImageListParseP(const LPSTR* argv, Matrix3x4& P)
 
 // parse images list containing calibration and pose information
 // and load the corresponding 3D point-cloud
-bool ParseImageListXML(Scene& scene, PlatformDistCoeffs& pltDistCoeffs, size_t& nCameras, size_t& nPoses)
+bool ParseImageListXML(tinyxml2::XMLDocument& doc, Scene& scene, PlatformDistCoeffs& pltDistCoeffs, size_t& nCameras, size_t& nPoses)
 {
-	// open image list
-	nCameras = nPoses = 0;
-	const String strInputFileName(MAKE_PATH_SAFE(OPT::strInputFileName));
-	ISTREAMPTR pStream(new File(strInputFileName, File::READ, File::OPEN));
-	if (!((File*)(ISTREAM*)pStream)->isOpen()) {
-		LOG(_T("error: failed opening the input image list"));
-		return false;
-	}
-
-	// parse camera list
+	String strInputFileName(MAKE_PATH_FULL(WORKING_FOLDER_FULL, OPT::strInputFileName));
+	Util::ensureValidPath(strInputFileName);
 	tinyxml2::XMLElement* elem;
-	const size_t nLen(pStream->getSize());
-	String strCameras; strCameras.resize(nLen);
-	pStream->read(&strCameras[0], nLen);
-	tinyxml2::XMLDocument doc;
-	doc.Parse(strCameras.c_str(), nLen);
 	if (doc.ErrorID() != tinyxml2::XML_SUCCESS)
 		goto InvalidDocument;
 	{
@@ -362,7 +347,7 @@ bool ParseImageListXML(Scene& scene, PlatformDistCoeffs& pltDistCoeffs, size_t& 
 	{
 	PMatrix P;
 	size_t argc;
-	const String strPath(GET_PATH_FULL(strInputFileName));
+	const String strPath(Util::getFilePath(strInputFileName));
 	for (tinyxml2::XMLElement* camera=cameras->FirstChildElement(); camera!=NULL; camera=camera->NextSiblingElement()) {
 		unsigned ID;
 		if (0 != _tcsicmp(camera->Value(), _T("camera")) || camera->QueryUnsignedAttribute(_T("id"), &ID) != tinyxml2::XML_SUCCESS)
@@ -388,6 +373,7 @@ bool ParseImageListXML(Scene& scene, PlatformDistCoeffs& pltDistCoeffs, size_t& 
 		const cv::Size& resolution = resolutions[imageData.platformID];
 		imageData.width = resolution.width;
 		imageData.height = resolution.height;
+		imageData.scale = 1;
 		if (!bMetashapeFile && !camera->BoolAttribute(_T("enabled"))) {
 			imageData.poseID = NO_ID;
 			DEBUG_EXTRA("warning: uncalibrated image '%s'", name);
@@ -415,6 +401,7 @@ bool ParseImageListXML(Scene& scene, PlatformDistCoeffs& pltDistCoeffs, size_t& 
 		++nPoses;
 		}
 	}
+	scene.nCalibratedImages = (unsigned)nPoses;
 	}
 
 	// parse bounding-box
@@ -466,9 +453,202 @@ bool ParseImageListXML(Scene& scene, PlatformDistCoeffs& pltDistCoeffs, size_t& 
 	return false;
 }
 
+// parse scene stored in ContextCapture BlocksExchange format containing cameras, images and sparse point-cloud
+bool ParseBlocksExchangeXML(tinyxml2::XMLDocument& doc, Scene& scene, PlatformDistCoeffs& pltDistCoeffs, size_t& nCameras, size_t& nPoses) {
+	String strInputFileName(MAKE_PATH_FULL(WORKING_FOLDER_FULL, OPT::strInputFileName));
+	Util::ensureValidPath(strInputFileName);
+	const tinyxml2::XMLElement* blocksExchange;
+	const tinyxml2::XMLElement* document;
+	const tinyxml2::XMLElement* photogroups;
+	if (doc.ErrorID() != tinyxml2::XML_SUCCESS ||
+		(blocksExchange=doc.FirstChildElement("BlocksExchange")) == NULL ||
+		(document=blocksExchange->FirstChildElement("Block")) == NULL ||
+		(photogroups=document->FirstChildElement("Photogroups")) == NULL) {
+		VERBOSE("error: invalid scene file");
+		return false;
+	}
+	CLISTDEF0(cv::Size) resolutions;
+	std::unordered_map<IIndex,IIndex> mapImageID;
+	const String strPath(Util::getFilePath(strInputFileName));
+	const tinyxml2::XMLElement* elem;
+	for (const tinyxml2::XMLElement* photogroup=photogroups->FirstChildElement(); photogroup!=NULL; photogroup=photogroup->NextSiblingElement()) {
+		if ((elem=photogroup->FirstChildElement("CameraModelType")) == NULL ||
+			std::strcmp(elem->GetText(), "Perspective") != 0)
+			continue;
+		if ((elem=photogroup->FirstChildElement("ImageDimensions")) == NULL)
+			continue;
+		const IIndex platformID = scene.platforms.size();
+		Platform& platform = scene.platforms.AddEmpty();
+		platform.name = photogroup->FirstChildElement("Name")->GetText();
+		resolutions.emplace_back(
+			elem->FirstChildElement("Width")->UnsignedText(),
+			elem->FirstChildElement("Height")->UnsignedText()
+		);
+		// parse camera
+		Platform::Camera& camera = platform.cameras.AddEmpty();
+		camera.K = KMatrix::IDENTITY;
+		camera.R = RMatrix::IDENTITY;
+		camera.C = CMatrix::ZERO;
+		const float resolutionScale = Camera::GetNormalizationScale(resolutions.back().width, resolutions.back().height);
+		if ((elem=photogroup->FirstChildElement("FocalLengthPixels")) != NULL) {
+			camera.K(0,0) = camera.K(1,1) = photogroup->FirstChildElement("FocalLengthPixels")->DoubleText();
+		} else {
+			camera.K(0,0) = camera.K(1,1) = photogroup->FirstChildElement("FocalLength")->DoubleText() * resolutionScale / photogroup->FirstChildElement("SensorSize")->DoubleText();
+		}
+		if ((elem=photogroup->FirstChildElement("PrincipalPoint")) != NULL) {
+			camera.K(0,2) = elem->FirstChildElement("x")->DoubleText();
+			camera.K(1,2) = elem->FirstChildElement("y")->DoubleText();
+		} else {
+			camera.K(0,2) = resolutions.back().width*REAL(0.5);
+			camera.K(1,2) = resolutions.back().height*REAL(0.5);
+		}
+		if ((elem=photogroup->FirstChildElement("AspectRatio")) != NULL)
+			camera.K(1,1) *= elem->DoubleText();
+		if ((elem=photogroup->FirstChildElement("Skew")) != NULL)
+			camera.K(0,1) = elem->DoubleText();
+		camera.K = camera.GetScaledK(REAL(1)/resolutionScale);
+		// parse distortion parameters
+		DistCoeff& dc = pltDistCoeffs.AddEmpty().AddEmpty(); {
+			const tinyxml2::XMLElement* distortion=photogroup->FirstChildElement("Distortion");
+			if (distortion) {
+				if ((elem=distortion->FirstChildElement("K1")) != NULL)
+					dc.k1 = elem->DoubleText();
+				if ((elem=distortion->FirstChildElement("K2")) != NULL)
+					dc.k2 = elem->DoubleText();
+				if ((elem=distortion->FirstChildElement("K3")) != NULL)
+					dc.k3 = elem->DoubleText();
+				if ((elem=distortion->FirstChildElement("P1")) != NULL)
+					dc.p2 = elem->DoubleText();
+				if ((elem=distortion->FirstChildElement("P2")) != NULL)
+					dc.p1 = elem->DoubleText();
+			}
+		}
+		++nCameras;
+		for (const tinyxml2::XMLElement* photo=photogroup->FirstChildElement("Photo"); photo!=NULL; photo=photo->NextSiblingElement()) {
+			const IIndex idxImage = scene.images.size();
+			Image& imageData = scene.images.AddEmpty();
+			imageData.platformID = platformID;
+			imageData.cameraID = 0; // only one camera per platform supported by this format
+			imageData.poseID = NO_ID;
+			imageData.ID = photo->FirstChildElement("Id")->UnsignedText();
+			imageData.name = photo->FirstChildElement("ImagePath")->GetText();
+			Util::ensureUnifySlash(imageData.name);
+			imageData.name = MAKE_PATH_FULL(strPath, imageData.name);
+			mapImageID.emplace(imageData.ID, idxImage);
+			// set image resolution
+			const cv::Size& resolution = resolutions[imageData.platformID];
+			imageData.width = resolution.width;
+			imageData.height = resolution.height;
+			imageData.scale = 1;
+			// set camera pose
+			const tinyxml2::XMLElement* photoPose = photo->FirstChildElement("Pose");
+			if (photoPose == NULL)
+				continue;
+			if ((elem=photoPose->FirstChildElement("Rotation")) == NULL)
+				continue;
+			imageData.poseID = platform.poses.size();
+			Platform::Pose& pose = platform.poses.AddEmpty();
+			pose.R = Matrix3x3(
+				elem->FirstChildElement("M_00")->DoubleText(),
+				elem->FirstChildElement("M_01")->DoubleText(),
+				elem->FirstChildElement("M_02")->DoubleText(),
+				elem->FirstChildElement("M_10")->DoubleText(),
+				elem->FirstChildElement("M_11")->DoubleText(),
+				elem->FirstChildElement("M_12")->DoubleText(),
+				elem->FirstChildElement("M_20")->DoubleText(),
+				elem->FirstChildElement("M_21")->DoubleText(),
+				elem->FirstChildElement("M_22")->DoubleText());
+			if ((elem=photoPose->FirstChildElement("Center")) == NULL)
+				continue;
+			pose.C = Point3(
+				elem->FirstChildElement("x")->DoubleText(),
+				elem->FirstChildElement("y")->DoubleText(),
+				elem->FirstChildElement("z")->DoubleText());
+			imageData.camera = platform.GetCamera(imageData.cameraID, imageData.poseID);
+			// set depth stats
+			if ((elem=photo->FirstChildElement("MedianDepth")) != NULL)
+				imageData.avgDepth = (float)elem->DoubleText();
+			else if (photo->FirstChildElement("NearDepth") != NULL && photo->FirstChildElement("FarDepth") != NULL)
+				imageData.avgDepth = (float)((photo->FirstChildElement("NearDepth")->DoubleText() + photo->FirstChildElement("FarDepth")->DoubleText())/2);
+			else
+				imageData.avgDepth = 0;
+			++nPoses;
+		}
+	}
+	if (scene.images.size() < 2)
+		return false;
+	scene.nCalibratedImages = (unsigned)nPoses;
+	// transform poses to a local coordinate system
+	const bool bLocalCoords(document->FirstChildElement("SRSId") == NULL ||
+		((elem=blocksExchange->FirstChildElement("SpatialReferenceSystems")) != NULL && (elem=elem->FirstChildElement("SRS")) != NULL && (elem=elem->FirstChildElement("Name")) != NULL && _tcsncmp(elem->GetText(), "Local Coordinates", 17) == 0));
+	Point3 center = Point3::ZERO;
+	if (!bLocalCoords) {
+		for (const Image& imageData : scene.images)
+			center += imageData.camera.C;
+		center /= scene.images.size();
+		for (Platform& platform : scene.platforms)
+			for (Platform::Pose& pose : platform.poses)
+				pose.C -= center;
+	}
+	// try to read also the sparse point-cloud
+	const tinyxml2::XMLElement* tiepoints = document->FirstChildElement("TiePoints");
+	if (tiepoints == NULL)
+		return true;
+	for (const tinyxml2::XMLElement* tiepoint=tiepoints->FirstChildElement(); tiepoint!=NULL; tiepoint=tiepoint->NextSiblingElement()) {
+		if ((elem=tiepoint->FirstChildElement("Position")) == NULL)
+			continue;
+		scene.pointcloud.points.emplace_back(
+			(float)elem->FirstChildElement("x")->DoubleText(),
+			(float)elem->FirstChildElement("y")->DoubleText(),
+			(float)elem->FirstChildElement("z")->DoubleText());
+		if (!bLocalCoords)
+			scene.pointcloud.points.back() -= Cast<float>(center);
+		if ((elem=tiepoint->FirstChildElement("Color")) != NULL)
+			scene.pointcloud.colors.emplace_back(
+				(uint8_t)std::clamp(elem->FirstChildElement("Blue")->DoubleText()*255, 0.0, 255.0),
+				(uint8_t)std::clamp(elem->FirstChildElement("Green")->DoubleText()*255, 0.0, 255.0),
+				(uint8_t)std::clamp(elem->FirstChildElement("Red")->DoubleText()*255, 0.0, 255.0));
+		PointCloud::ViewArr views;
+		for (const tinyxml2::XMLElement* view=tiepoint->FirstChildElement("Measurement"); view!=NULL; view=view->NextSiblingElement())
+			views.emplace_back(mapImageID.at(view->FirstChildElement("PhotoId")->UnsignedText()));
+		scene.pointcloud.pointViews.emplace_back(std::move(views));
+	}
+	return true;
+}
+
+// parse scene stored either in Metashape images list format or ContextCapture BlocksExchange format
+bool ParseSceneXML(Scene& scene, PlatformDistCoeffs& pltDistCoeffs, size_t& nCameras, size_t& nPoses)
+{
+	// parse XML file
+	const String strInputFileName(MAKE_PATH_SAFE(OPT::strInputFileName));
+	tinyxml2::XMLDocument doc; {
+		ISTREAMPTR pStream(new File(strInputFileName, File::READ, File::OPEN));
+		if (!((File*)(ISTREAM*)pStream)->isOpen()) {
+			VERBOSE("error: failed opening the input scene file");
+			return false;
+		}
+		const size_t nLen(pStream->getSize());
+		String str; str.resize(nLen);
+		pStream->read(&str[0], nLen);
+		doc.Parse(str.c_str(), nLen);
+	}
+	if (doc.ErrorID() != tinyxml2::XML_SUCCESS) {
+		VERBOSE("error: invalid XML file");
+		return false;
+	}
+	// parse scene
+	if (doc.FirstChildElement("BlocksExchange") == NULL)
+		return ParseImageListXML(doc, scene, pltDistCoeffs, nCameras, nPoses);
+	return ParseBlocksExchangeXML(doc, scene, pltDistCoeffs, nCameras, nPoses);
+}
+
 // undistort image using Brown's model
 bool UndistortBrown(Image& imageData, uint32_t ID, const DistCoeff& dc, const String& pathData)
 {
+	// do we need to undistort?
+	if (!dc.HasDistortion())
+		return true;
+
 	// load image pixels
 	if (!imageData.ReloadImage())
 		return false;
@@ -479,7 +659,7 @@ bool UndistortBrown(Image& imageData, uint32_t ID, const DistCoeff& dc, const St
 	#if 1
 	const KMatrix& K(prevK);
 	#else
-	const KMatrix K(cv::getOptimalNewCameraMatrix(prevK, distCoeffs, imageData.GetSize(), 0.0, cv::Size(), NULL, true));
+	const KMatrix K(cv::getOptimalNewCameraMatrix(prevK, distCoeffs, imageData.size(), 0.0, cv::Size(), NULL, true));
 	ASSERT(K(0,2) == Camera::ComposeK(prevK(0,0), prevK(1,1), imageData.width(), imageData.height())(0,2));
 	ASSERT(K(1,2) == Camera::ComposeK(prevK(0,0), prevK(1,1), imageData.width(), imageData.height())(1,2));
 	if (K.IsEqual(prevK)) {
@@ -512,13 +692,13 @@ void AssignPoints(const Image& imageData, uint32_t ID, PointCloud& pointcloud)
 	const Depth thCloseDepth(0.1f);
 
 	// sort points by depth
-	IndexScoreArr points(0, pointcloud.points.GetSize());
+	IndexScoreArr points(0, pointcloud.points.size());
 	FOREACH(p, pointcloud.points) {
 		const PointCloud::Point& X(pointcloud.points[p]);
 		const float d((float)imageData.camera.PointDepth(X));
 		if (d <= 0)
 			continue;
-		points.AddConstruct((uint32_t)p, d);
+		points.emplace_back((uint32_t)p, d);
 	}
 	points.Sort();
 
@@ -536,7 +716,7 @@ void AssignPoints(const Image& imageData, uint32_t ID, PointCloud& pointcloud)
 		ASSERT(Xc.z > 0);
 		// skip point if the (cos) angle between
 		// its normal and the point to view vector is negative
-		if (!pointcloud.normals.IsEmpty() && Xc.dot(pointcloud.normals[pPD->idx]) > 0)
+		if (!pointcloud.normals.empty() && Xc.dot(pointcloud.normals[pPD->idx]) > 0)
 			continue;
 		const Point2f x(imageData.camera.TransformPointC2I(Xc));
 		const ImageRef ir(ROUND2INT(x));
@@ -613,19 +793,18 @@ int main(int argc, LPCTSTR* argv)
 
 	Scene scene(OPT::nMaxThreads);
 
-	// read the 3D point-cloud if available
-	if (!OPT::strPointsFileName.empty()) {
-		if (!scene.pointcloud.Load(MAKE_PATH_SAFE(OPT::strPointsFileName)))
-			return EXIT_FAILURE;
-		ASSERT(!scene.pointcloud.IsValid());
-		scene.pointcloud.pointViews.Resize(scene.pointcloud.points.GetSize());
-	}
-
 	// convert data from Metashape format to OpenMVS
 	PlatformDistCoeffs pltDistCoeffs;
-	size_t nCameras, nPoses;
-	if (!ParseImageListXML(scene, pltDistCoeffs, nCameras, nPoses))
+	size_t nCameras(0), nPoses(0);
+	if (!ParseSceneXML(scene, pltDistCoeffs, nCameras, nPoses))
 		return EXIT_FAILURE;
+
+	// read the 3D point-cloud if available
+	if (!OPT::strPointsFileName.empty() && !scene.pointcloud.Load(MAKE_PATH_SAFE(OPT::strPointsFileName)))
+		return EXIT_FAILURE;
+	const bool bAssignPoints(!scene.pointcloud.IsEmpty() && !scene.pointcloud.IsValid());
+	if (bAssignPoints)
+		scene.pointcloud.pointViews.resize(scene.pointcloud.GetSize());
 
 	// undistort images
 	const String pathData(MAKE_PATH_FULL(WORKING_FOLDER_FULL, OPT::strOutputImageFolder));
@@ -643,38 +822,68 @@ int main(int argc, LPCTSTR* argv)
 	#endif
 		++progress;
 		Image& imageData = scene.images[ID];
+		if (!imageData.IsValid())
+			continue;
 		if (!UndistortBrown(imageData, ID, pltDistCoeffs[imageData.platformID][imageData.cameraID], pathData)) {
 			#ifdef _USE_OPENMP
 			bAbort = true;
 			#pragma omp flush (bAbort)
 			continue;
 			#else
-			return false;
+			return EXIT_FAILURE;
 			#endif
 		}
 		imageData.UpdateCamera(scene.platforms);
-		if (scene.pointcloud.IsValid())
+		if (bAssignPoints)
 			AssignPoints(imageData, ID, scene.pointcloud);
 	}
 	GET_LOGCONSOLE().Play();
 	#ifdef _USE_OPENMP
 	if (bAbort)
-		return EXIT_SUCCESS;
+		return EXIT_FAILURE;
 	#endif
 	progress.close();
 
-	// filter invalid points
-	if (!scene.pointcloud.IsEmpty()) {
+	if (scene.pointcloud.IsValid()) {
+		// filter invalid points
 		RFOREACH(i, scene.pointcloud.points)
 			if (scene.pointcloud.pointViews[i].size() < 2)
 				scene.pointcloud.RemovePoint(i);
+		// compute average scene depth per image
+		if (!std::any_of(scene.images.begin(), scene.images.end(), [](const Image& imageData) { return imageData.avgDepth > 0; })) {
+			std::vector<float> avgDepths(scene.images.size(), 0.f);
+			std::vector<uint32_t> numDepths(scene.images.size(), 0u);
+			FOREACH(idxPoint, scene.pointcloud.points) {
+				const Point3 X(scene.pointcloud.points[idxPoint]);
+				for (const PointCloud::View& idxImage: scene.pointcloud.pointViews[idxPoint]) {
+					const Image& imageData = scene.images[idxImage];
+					const float depth((float)imageData.camera.PointDepth(X));
+					if (depth > 0) {
+						avgDepths[idxImage] += depth;
+						++numDepths[idxImage];
+					}
+				}
+			}
+			FOREACH(idxImage, scene.images) {
+				Image& imageData = scene.images[idxImage];
+				if (numDepths[idxImage] > 0)
+					imageData.avgDepth = avgDepths[idxImage] / numDepths[idxImage];
+			}
+		}
 	}
+
+	// print average scene depth per image stats
+	MeanStdMinMax<float,double> acc;
+	for (const Image& imageData: scene.images)
+		if (imageData.avgDepth > 0)
+			acc.Update(imageData.avgDepth);
 
 	// write OpenMVS input data
 	scene.Save(MAKE_PATH_SAFE(OPT::strOutputFileName), (ARCHIVE_TYPE)OPT::nArchiveType);
 
-	VERBOSE("Exported data: %u platforms, %u cameras, %u poses, %u images, %u vertices (%s)",
-			scene.platforms.GetSize(), nCameras, nPoses, scene.images.GetSize(), scene.pointcloud.GetSize(),
+	VERBOSE("Exported data: %u platforms, %u cameras, %u poses, %u images, %u vertices, %g min / %g mean (%g std) / %g max average scene depth per image (%s)",
+			scene.platforms.size(), nCameras, nPoses, scene.images.size(), scene.pointcloud.GetSize(),
+			acc.minVal, acc.GetMean(), acc.GetStdDev(), acc.maxVal,
 			TD_TIMER_GET_FMT().c_str());
 
 	Finalize();

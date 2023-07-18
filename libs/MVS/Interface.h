@@ -386,6 +386,21 @@ struct Interface
 			static uint32_t GetNormalizationScale(uint32_t width, uint32_t height) { return std::max(width, height); }
 			uint32_t GetNormalizationScale() const { return GetNormalizationScale(width, height); }
 
+			// project point: camera to image (homogeneous) coordinates
+			inline Pos3d operator * (const Pos3d& X) const {
+				return Pos3d(
+					K(0,2)+K(0,0)*X.x/X.z,
+					K(1,2)+K(1,1)*X.y/X.z,
+					1.0);
+			}
+			// back-project point: image (z is the depth) to camera coordinates
+			inline Pos3d operator / (const Pos3d& x) const {
+				return Pos3d(
+					(x.x-K(0,2))*x.z/K(0,0),
+					(x.y-K(1,2))*x.z/K(1,1),
+					1.0);
+			}
+
 			template <class Archive>
 			void serialize(Archive& ar, const unsigned int version) {
 				ar & name;
@@ -450,10 +465,11 @@ struct Interface
 		}
 		static Mat33d ScaleK(const Mat33d& _K, double scale) {
 			Mat33d K(_K);
+			const bool bNormalized(K(0,2) < 3 && K(1,2) < 3);
 			K(0,0) *= scale;
 			K(1,1) *= scale;
-			K(0,2) = (K(0,2)+0.5)*scale-0.5;
-			K(1,2) = (K(1,2)+0.5)*scale-0.5;
+			K(0,2) = bNormalized ? K(0,2)*scale : (K(0,2)+0.5)*scale-0.5;
+			K(1,2) = bNormalized ? K(1,2)*scale : (K(1,2)+0.5)*scale-0.5;
 			K(0,1) *= scale;
 			return K;
 		}
@@ -642,6 +658,15 @@ struct Interface
 		const Image& image = images[imageID];
 		return platforms[image.platformID].GetK(image.cameraID);
 	}
+	Mat33d GetFullK(uint32_t imageID, uint32_t width, uint32_t height) const {
+		const Image& image = images[imageID];
+		return platforms[image.platformID].GetFullK(image.cameraID, width, height);
+	}
+
+	const Platform::Camera& GetCamera(uint32_t imageID) const {
+		const Image& image = images[imageID];
+		return platforms[image.platformID].cameras[image.cameraID];
+	}
 
 	Platform::Pose GetPose(uint32_t imageID) const {
 		const Image& image = images[imageID];
@@ -700,16 +725,18 @@ struct Interface
 //  - depth-map-resolution, for now only the same resolution as the image is supported
 //  - min/max-depth of the values in the depth-map
 //  - image-file-name is the path to the reference color image
-//  - image-IDs are the reference view ID and neighbor view IDs used to estimate the depth-map
+//  - image-IDs are the reference view ID and neighbor view IDs used to estimate the depth-map (global ID)
 //  - camera/rotation/position matrices (row-major) is the absolute pose corresponding to the reference view
-//  - depth-map represents the pixel depth
-//  - normal-map (optional) represents the 3D point normal in camera space; same resolution as the depth-map
-//  - confidence-map (optional) represents the 3D point confidence (usually a value in [0,1]); same resolution as the depth-map
+//  - depth-map: the pixels' depth
+//  - normal-map (optional): the 3D point normal in camera space; same resolution as the depth-map
+//  - confidence-map (optional): the 3D point confidence (usually a value in [0,1]); same resolution as the depth-map
+//  - views-map (optional): the pixels' views, indexing image-IDs starting after first view (up to 4); same resolution as the depth-map
 struct HeaderDepthDataRaw {
 	enum {
 		HAS_DEPTH = (1<<0),
 		HAS_NORMAL = (1<<1),
 		HAS_CONF = (1<<2),
+		HAS_VIEWS = (1<<3),
 	};
 	uint16_t name; // file type
 	uint8_t type; // content type
@@ -719,7 +746,7 @@ struct HeaderDepthDataRaw {
 	float dMin, dMax; // depth range for this view
 	// image file name length followed by the characters: uint16_t nFileNameSize; char* FileName
 	// number of view IDs followed by view ID and neighbor view IDs: uint32_t nIDs; uint32_t* IDs
-	// camera, rotation and position matrices (row-major): double K[3][3], R[3][3], C[3]
+	// camera, rotation and position matrices (row-major) at image resolution: double K[3][3], R[3][3], C[3]
 	// depth, normal, confidence maps: float depthMap[height][width], normalMap[height][width][3], confMap[height][width]
 	inline HeaderDepthDataRaw() : name(0), type(0), padding(0) {}
 	static uint16_t HeaderDepthDataRawName() { return *reinterpret_cast<const uint16_t*>("DR"); }

@@ -596,7 +596,7 @@ void SemiGlobalMatcher::Match(const Scene& scene, IIndex idxImage, IIndex numNei
 				const REAL _scale(scale*0.5);
 				Matrix3x3 _H(H); Matrix4x4 _Q(Q);
 				Image::ScaleStereoRectification(_H, _Q, _scale);
-				ExportDisparityDataRawFull(String::FormatString("%s_%d.dimap", pairName.c_str(), log2i(ROUND2INT(REAL(1)/_scale))), leftDisparityMap, costMap, Image8U::computeResize(leftImage.GetSize(), _scale), H, _Q, 1);
+				ExportDisparityDataRawFull(String::FormatString("%s_%d.dimap", pairName.c_str(), LOG2I(ROUND2INT<unsigned>(REAL(1)/_scale))), leftDisparityMap, costMap, Image8U::computeResize(leftImage.GetSize(), _scale), H, _Q, 1);
 			}
 			#endif
 			// initialize
@@ -866,7 +866,7 @@ void SemiGlobalMatcher::Match(const ViewData& leftImage, const ViewData& rightIm
 	const cv::Size sizeValid(size.width-2*halfWindowSizeX, size.height-2*halfWindowSizeY);
 	ASSERT(leftImage.imageColor.size() == size);
 
-	#if 0
+	#if 0 && !defined(_RELEASE)
 	// display search info (average disparity and range)
 	DisplayState(sizeValid);
 	#endif
@@ -1389,7 +1389,7 @@ SemiGlobalMatcher::Index SemiGlobalMatcher::Disparity2RangeMap(const DisparityMa
 					range.minDisp = -range.maxDisp;
 					numDisp = range.numDisp();
 				} else {
-					const Disparity disp(disps.GetMedian()*2);
+					const Disparity disp(disps.GetMedian<Disparity>()*2);
 					const auto minmax(disps.GetMinMax());
 					numDisp = (minmax.second-minmax.first)*2;
 					if (numDisp < minNumDisp) {
@@ -1488,7 +1488,7 @@ void SemiGlobalMatcher::ConsistencyCrossCheck(DisparityMap& l2r, const Disparity
 			pixel(-1, r, c);
 }
 
-// Discard disparities that have a hight similarity score
+// Discard disparities that have a high similarity score
 void SemiGlobalMatcher::FilterByCost(DisparityMap& disparityMap, const AccumCostMap& costMap, AccumCost th)
 {
 	ASSERT(th > 0);
@@ -1811,6 +1811,7 @@ void SemiGlobalMatcher::RefineDisparityMap(DisparityMap& disparityMap) const
 }
 
 
+#ifndef _RELEASE
 // extract disparity and range from the pixel-map
 void SemiGlobalMatcher::DisplayState(const cv::Size& size) const
 {
@@ -1831,6 +1832,7 @@ void SemiGlobalMatcher::DisplayState(const cv::Size& size) const
 
 	cv::destroyAllWindows();
 }
+#endif
 
 // Compute the disparity-map for the rectified image from the given depth-map of the un-rectified image;
 // the disparity map needs to be already constructed at the desired size (valid size, excluding the border)

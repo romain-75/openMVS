@@ -1945,7 +1945,7 @@ typedef Mesh::FIndex FIndex;
 class MeshRefineCUDA {
 public:
 	typedef Mesh::FaceIdxArr CameraFaces;
-	typedef SEACAVE::cList<CameraFaces,const CameraFaces&,2> CameraFacesArr;
+	typedef CLISTDEF2(CameraFaces) CameraFacesArr;
 
 	// store necessary data about a view
 	struct View {
@@ -1958,7 +1958,7 @@ public:
 		inline View() {}
 		inline View(View&) {}
 	};
-	typedef SEACAVE::cList<View,const View&,2> ViewsArr;
+	typedef CLISTDEF2(View) ViewsArr;
 
 	struct CameraCUDA {
 		Matrix3x4f P;
@@ -2076,7 +2076,7 @@ MeshRefineCUDA::MeshRefineCUDA(Scene& _scene, unsigned _nAlternatePair, float _w
 	scene(_scene),
 	images(_scene.images)
 {
-	if (!InitKernels())
+	if (!InitKernels(CUDA::desiredDeviceID))
 		return;
 	// keep only best neighbor views for each image
 	std::unordered_set<uint64_t> mapPairs;
@@ -2380,14 +2380,14 @@ void MeshRefineCUDA::SubdivideMesh(uint32_t maxArea, float fDecimate, unsigned n
 	if (!bNoDecimation) {
 		if (fDecimate > 0.f) {
 			// decimate to the desired resolution
-			scene.mesh.Clean(fDecimate, 0.f, false, nCloseHoles, 0, false);
-			scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+			scene.mesh.Clean(fDecimate, 0.f, false, nCloseHoles, 0u, 0.f, false);
+			scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 
 			#ifdef MESHOPT_ENSUREEDGESIZE
 			// make sure there are no edges too small or too long
 			if (nEnsureEdgeSize > 0 && bNoSimplification) {
 				scene.mesh.EnsureEdgeSize();
-				scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+				scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 			}
 			#endif
 
@@ -2407,14 +2407,14 @@ void MeshRefineCUDA::SubdivideMesh(uint32_t maxArea, float fDecimate, unsigned n
 				maxAreas.Empty();
 
 				// decimate to the auto detected resolution
-				scene.mesh.Clean(MAXF(0.1f, medianArea/maxArea), 0.f, false, nCloseHoles, 0, false);
-				scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+				scene.mesh.Clean(MAXF(0.1f, medianArea/maxArea), 0.f, false, nCloseHoles, 0u, 0.f, false);
+				scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 
 				#ifdef MESHOPT_ENSUREEDGESIZE
 				// make sure there are no edges too small or too long
 				if (nEnsureEdgeSize > 0 && bNoSimplification) {
 					scene.mesh.EnsureEdgeSize();
-					scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+					scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 				}
 				#endif
 
@@ -2446,7 +2446,7 @@ void MeshRefineCUDA::SubdivideMesh(uint32_t maxArea, float fDecimate, unsigned n
 	#endif
 	{
 		scene.mesh.EnsureEdgeSize();
-		scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+		scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 	}
 	#endif
 
@@ -2799,8 +2799,8 @@ bool Scene::RefineMeshCUDA(unsigned nResolutionLevel, unsigned nMinResolution, u
 	// run the mesh optimization on multiple scales (coarse to fine)
 	for (unsigned nScale=0; nScale<nScales; ++nScale) {
 		// init images
-		const float scale(POWI(fScaleStep, (int)(nScales-nScale-1)));
-		const float step(POWI(2.f, (int)(nScales-nScale)));
+		const float scale(POWI(fScaleStep, nScales-nScale-1));
+		const float step(POWI(2.f, nScales-nScale));
 		DEBUG_ULTIMATE("Refine mesh at: %.2f image scale", scale);
 		if (!refine.InitImages(scale, 0.12f*step+0.2f))
 			return false;

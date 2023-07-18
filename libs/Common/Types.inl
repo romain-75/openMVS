@@ -41,7 +41,7 @@ INT_TYPE cvRANSACUpdateNumIters(REAL_TYPE p, REAL_TYPE ep, INT_TYPE modelPoints,
 		return 0;
 	num = SEACAVE::LOGN(num);
 	denom = SEACAVE::LOGN(denom);
-	return (denom >= 0 || -num >= (-denom)*maxIters ? maxIters : (INT_TYPE)ROUND2INT(num/denom));
+	return (denom >= 0 || -num >= (-denom)*maxIters ? maxIters : ROUND2INT<INT_TYPE>(num/denom));
 }
 #endif
 
@@ -571,58 +571,58 @@ FORCEINLINE bool ISEQUAL(const cv::Matx<TYPE,m,n>& v1, const cv::Matx<TYPE,m,n>&
 }
 
 // round
-template <typename TYPE>
-FORCEINLINE SEACAVE::TPoint2<int32_t> Floor2Int(const cv::Point_<TYPE>& v)
+template <typename TYPE, typename INTTYPE=int>
+FORCEINLINE SEACAVE::TPoint2<INTTYPE> Floor2Int(const cv::Point_<TYPE>& v)
 {
-	return SEACAVE::TPoint2<int32_t>(FLOOR2INT(v.x), FLOOR2INT(v.y));
+	return SEACAVE::TPoint2<INTTYPE>(FLOOR2INT(v.x), FLOOR2INT(v.y));
 }
-template <typename TYPE>
-FORCEINLINE SEACAVE::TPoint2<int32_t> Ceil2Int(const cv::Point_<TYPE>& v)
+template <typename TYPE, typename INTTYPE=int>
+FORCEINLINE SEACAVE::TPoint2<INTTYPE> Ceil2Int(const cv::Point_<TYPE>& v)
 {
-	return SEACAVE::TPoint2<int32_t>(CEIL2INT(v.x), CEIL2INT(v.y));
+	return SEACAVE::TPoint2<INTTYPE>(CEIL2INT(v.x), CEIL2INT(v.y));
 }
-template <typename TYPE>
-FORCEINLINE SEACAVE::TPoint2<int32_t> Round2Int(const cv::Point_<TYPE>& v)
+template <typename TYPE, typename INTTYPE=int>
+FORCEINLINE SEACAVE::TPoint2<INTTYPE> Round2Int(const cv::Point_<TYPE>& v)
 {
-	return SEACAVE::TPoint2<int32_t>(ROUND2INT(v.x), ROUND2INT(v.y));
-}
-
-template <typename TYPE>
-FORCEINLINE SEACAVE::TPoint3<int32_t> Floor2Int(const cv::Point3_<TYPE>& v)
-{
-	return SEACAVE::TPoint3<int32_t>(FLOOR2INT(v.x), FLOOR2INT(v.y), FLOOR2INT(v.z));
-}
-template <typename TYPE>
-FORCEINLINE SEACAVE::TPoint3<int32_t> Ceil2Int(const cv::Point3_<TYPE>& v)
-{
-	return SEACAVE::TPoint3<int32_t>(CEIL2INT(v.x), CEIL2INT(v.y), CEIL2INT(v.z));
-}
-template <typename TYPE>
-FORCEINLINE SEACAVE::TPoint3<int32_t> Round2Int(const cv::Point3_<TYPE>& v)
-{
-	return SEACAVE::TPoint3<int32_t>(ROUND2INT(v.x), ROUND2INT(v.y), ROUND2INT(v.z));
+	return SEACAVE::TPoint2<INTTYPE>(ROUND2INT(v.x), ROUND2INT(v.y));
 }
 
-template <typename TYPE, int m, int n>
-FORCEINLINE SEACAVE::TMatrix<TYPE,m,n> Floor2Int(const cv::Matx<TYPE,m,n>& v)
+template <typename TYPE, typename INTTYPE=int>
+FORCEINLINE SEACAVE::TPoint3<INTTYPE> Floor2Int(const cv::Point3_<TYPE>& v)
 {
-	SEACAVE::TMatrix<TYPE,m,n> nv;
+	return SEACAVE::TPoint3<INTTYPE>(FLOOR2INT(v.x), FLOOR2INT(v.y), FLOOR2INT(v.z));
+}
+template <typename TYPE, typename INTTYPE=int>
+FORCEINLINE SEACAVE::TPoint3<INTTYPE> Ceil2Int(const cv::Point3_<TYPE>& v)
+{
+	return SEACAVE::TPoint3<INTTYPE>(CEIL2INT(v.x), CEIL2INT(v.y), CEIL2INT(v.z));
+}
+template <typename TYPE, typename INTTYPE=int>
+FORCEINLINE SEACAVE::TPoint3<INTTYPE> Round2Int(const cv::Point3_<TYPE>& v)
+{
+	return SEACAVE::TPoint3<INTTYPE>(ROUND2INT(v.x), ROUND2INT(v.y), ROUND2INT(v.z));
+}
+
+template <typename TYPE, int m, int n, typename INTTYPE=int>
+FORCEINLINE SEACAVE::TMatrix<INTTYPE,m,n> Floor2Int(const cv::Matx<TYPE,m,n>& v)
+{
+	SEACAVE::TMatrix<INTTYPE,m,n> nv;
 	for (int i=0; i<m*n; ++i)
 		nv.val[i] = Floor2Int(v.val[i]);
 	return nv;
 }
-template <typename TYPE, int m, int n>
-FORCEINLINE SEACAVE::TMatrix<TYPE,m,n> Ceil2Int(const cv::Matx<TYPE,m,n>& v)
+template <typename TYPE, int m, int n, typename INTTYPE=int>
+FORCEINLINE SEACAVE::TMatrix<INTTYPE,m,n> Ceil2Int(const cv::Matx<TYPE,m,n>& v)
 {
-	SEACAVE::TMatrix<TYPE,m,n> nv;
+	SEACAVE::TMatrix<INTTYPE,m,n> nv;
 	for (int i=0; i<m*n; ++i)
 		nv.val[i] = Ceil2Int(v.val[i]);
 	return nv;
 }
-template <typename TYPE, int m, int n>
-FORCEINLINE SEACAVE::TMatrix<TYPE,m,n> Round2Int(const cv::Matx<TYPE,m,n>& v)
+template <typename TYPE, int m, int n, typename INTTYPE=int>
+FORCEINLINE SEACAVE::TMatrix<INTTYPE,m,n> Round2Int(const cv::Matx<TYPE,m,n>& v)
 {
-	SEACAVE::TMatrix<TYPE,m,n> nv;
+	SEACAVE::TMatrix<INTTYPE,m,n> nv;
 	for (int i=0; i<m*n; ++i)
 		nv.val[i] = Round2Int(v.val[i]);
 	return nv;
@@ -3080,6 +3080,7 @@ bool TImage<TYPE>::Save(const String& fileName) const
 }
 /*----------------------------------------------------------------*/
 
+#ifndef _RELEASE
 template <typename TYPE>
 void TImage<TYPE>::Show(const String& winname, int delay, bool bDestroy) const
 {
@@ -3089,6 +3090,7 @@ void TImage<TYPE>::Show(const String& winname, int delay, bool bDestroy) const
 		cv::destroyWindow(winname);
 }
 /*----------------------------------------------------------------*/
+#endif
 
 
 // C L A S S  //////////////////////////////////////////////////////
@@ -3602,6 +3604,19 @@ template <typename P, int R, int O>
 inline Eigen::Matrix<P,R,2,O> operator*(const Eigen::Matrix<P,R,2,O>& lhs, const Eigen::SO2<P>& rhs) {
 	return lhs * rhs.get_matrix();
 }
+/*----------------------------------------------------------------*/
+
+namespace Eigen {
+
+template <typename Derived>
+std::istream& operator >> (std::istream& st, MatrixBase<Derived>& m) {
+	for (int i = 0; i < m.rows(); ++i)
+		for (int j = 0; j < m.cols(); ++j)
+			st >> m(i, j);
+	return st;
+}
+
+} // namespace Eigen
 /*----------------------------------------------------------------*/
 
 #endif // _USE_EIGEN

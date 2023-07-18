@@ -20,6 +20,11 @@ inline TOBB<TYPE,DIMS>::TOBB(bool)
 {
 }
 template <typename TYPE, int DIMS>
+inline TOBB<TYPE,DIMS>::TOBB(const AABB& aabb)
+{
+	Set(aabb);
+}
+template <typename TYPE, int DIMS>
 inline TOBB<TYPE,DIMS>::TOBB(const MATRIX& rot, const POINT& ptMin, const POINT& ptMax)
 {
 	Set(rot, ptMin, ptMax);
@@ -34,8 +39,25 @@ inline TOBB<TYPE,DIMS>::TOBB(const POINT* pts, size_t n, const TRIANGLE* tris, s
 {
 	Set(pts, n, tris, s);
 } // constructor
+template <typename TYPE, int DIMS>
+template <typename CTYPE>
+inline TOBB<TYPE,DIMS>::TOBB(const TOBB<CTYPE,DIMS>& rhs)
+	:
+	m_rot(rhs.m_rot.template cast<TYPE>()),
+	m_pos(rhs.m_pos.template cast<TYPE>()),
+	m_ext(rhs.m_ext.template cast<TYPE>())
+{
+} // copy constructor
 /*----------------------------------------------------------------*/
 
+
+template <typename TYPE, int DIMS>
+inline void TOBB<TYPE,DIMS>::Set(const AABB& aabb)
+{
+	m_rot.setIdentity();
+	m_pos = aabb.GetCenter();
+	m_ext = aabb.GetSize()/TYPE(2);
+}
 
 // build from rotation matrix from world to local, and local min/max corners
 template <typename TYPE, int DIMS>
@@ -255,14 +277,16 @@ inline bool TOBB<TYPE,DIMS>::IsValid() const
 
 
 template <typename TYPE, int DIMS>
-inline void TOBB<TYPE,DIMS>::Enlarge(TYPE x)
+inline TOBB<TYPE,DIMS>& TOBB<TYPE,DIMS>::Enlarge(TYPE x)
 {
-	m_ext.array() -= x;
+	m_ext.array() += x;
+	return *this;
 }
 template <typename TYPE, int DIMS>
-inline void TOBB<TYPE,DIMS>::EnlargePercent(TYPE x)
+inline TOBB<TYPE,DIMS>& TOBB<TYPE,DIMS>::EnlargePercent(TYPE x)
 {
 	m_ext *= x;
+	return *this;
 } // Enlarge
 /*----------------------------------------------------------------*/
 
@@ -317,10 +341,11 @@ inline void TOBB<TYPE,DIMS>::GetCorners(POINT pts[numCorners]) const
 			m_rot.row(0)*m_ext[0],
 			m_rot.row(1)*m_ext[1]
 		};
-		pts[0] = m_pos - pEAxis[0] - pEAxis[1];
-		pts[1] = m_pos + pEAxis[0] - pEAxis[1];
-		pts[2] = m_pos + pEAxis[0] + pEAxis[1];
-		pts[3] = m_pos - pEAxis[0] + pEAxis[1];
+		const POINT pos(m_rot.transpose()*m_pos);
+		pts[0] = pos - pEAxis[0] - pEAxis[1];
+		pts[1] = pos + pEAxis[0] - pEAxis[1];
+		pts[2] = pos + pEAxis[0] + pEAxis[1];
+		pts[3] = pos - pEAxis[0] + pEAxis[1];
 	}
 	if (DIMS == 3) {
 		const POINT pEAxis[3] = {
@@ -328,47 +353,24 @@ inline void TOBB<TYPE,DIMS>::GetCorners(POINT pts[numCorners]) const
 			m_rot.row(1)*m_ext[1],
 			m_rot.row(2)*m_ext[2]
 		};
-		pts[0] = m_pos - pEAxis[0] - pEAxis[1] - pEAxis[2];
-		pts[1] = m_pos - pEAxis[0] - pEAxis[1] + pEAxis[2];
-		pts[2] = m_pos + pEAxis[0] - pEAxis[1] - pEAxis[2];
-		pts[3] = m_pos + pEAxis[0] - pEAxis[1] + pEAxis[2];
-		pts[4] = m_pos + pEAxis[0] + pEAxis[1] - pEAxis[2];
-		pts[5] = m_pos + pEAxis[0] + pEAxis[1] + pEAxis[2];
-		pts[6] = m_pos - pEAxis[0] + pEAxis[1] - pEAxis[2];
-		pts[7] = m_pos - pEAxis[0] + pEAxis[1] + pEAxis[2];
+		const POINT pos(m_rot.transpose()*m_pos);
+		pts[0] = pos - pEAxis[0] - pEAxis[1] - pEAxis[2];
+		pts[1] = pos - pEAxis[0] - pEAxis[1] + pEAxis[2];
+		pts[2] = pos + pEAxis[0] - pEAxis[1] - pEAxis[2];
+		pts[3] = pos + pEAxis[0] - pEAxis[1] + pEAxis[2];
+		pts[4] = pos + pEAxis[0] + pEAxis[1] - pEAxis[2];
+		pts[5] = pos + pEAxis[0] + pEAxis[1] + pEAxis[2];
+		pts[6] = pos - pEAxis[0] + pEAxis[1] - pEAxis[2];
+		pts[7] = pos - pEAxis[0] + pEAxis[1] + pEAxis[2];
 	}
 } // GetCorners
 // constructs the corner of the aligned bounding box in world space
 template <typename TYPE, int DIMS>
 inline typename TOBB<TYPE,DIMS>::AABB TOBB<TYPE,DIMS>::GetAABB() const
 {
-	#if 0
-	if (DIMS == 2) {
-		const POINT pEAxis[2] = {
-			m_rot.row(0)*m_ext[0],
-			m_rot.row(1)*m_ext[1]
-		};
-		return AABB(
-			m_pos - pEAxis[0] - pEAxis[1],
-			m_pos + pEAxis[0] + pEAxis[1]
-		);
-	}
-	if (DIMS == 3) {
-		const POINT pEAxis[3] = {
-			m_rot.row(0)*m_ext[0],
-			m_rot.row(1)*m_ext[1],
-			m_rot.row(2)*m_ext[2]
-		};
-		return AABB(
-			m_pos - pEAxis[0] - pEAxis[1] - pEAxis[2],
-			m_pos + pEAxis[0] + pEAxis[1] + pEAxis[2]
-		);
-	}
-	#else
 	POINT pts[numCorners];
 	GetCorners(pts);
 	return AABB(pts, numCorners);
-	#endif
 } // GetAABB
 /*----------------------------------------------------------------*/
 

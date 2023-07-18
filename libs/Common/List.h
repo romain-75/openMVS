@@ -23,8 +23,10 @@
 // cList index type
 #ifdef _SUPPORT_CPP11
 #define ARR2IDX(arr) typename std::remove_reference<decltype(arr)>::type::size_type
+#define SIZE2IDX(arr) typename std::remove_const<typename std::remove_reference<decltype(arr)>::type>::type
 #else
 #define ARR2IDX(arr) IDX
+#define SIZE2IDX(arr) IDX
 #endif
 
 // cList iterator by index
@@ -44,10 +46,10 @@
 
 // raw data array iterator by index
 #ifndef FOREACHRAW
-#define FOREACHRAW(var, sz) for (IDX var=0, var##Size=(sz); var<var##Size; ++var)
+#define FOREACHRAW(var, sz) for (SIZE2IDX(sz) var=0, var##Size=(sz); var<var##Size; ++var)
 #endif
 #ifndef RFOREACHRAW
-#define RFOREACHRAW(var, sz) for (IDX var=sz; var-->0; )
+#define RFOREACHRAW(var, sz) for (SIZE2IDX(sz) var=sz; var-->0; )
 #endif
 // raw data array iterator by pointer
 #ifndef FOREACHRAWPTR
@@ -142,6 +144,13 @@ public:
 		_vector = (TYPE*)(operator new[] (_vectorSize * sizeof(TYPE)));
 		_ArrayCopyConstruct(_vector, rList._vector, _size);
 	}
+	#ifdef _SUPPORT_CPP11
+	// copy constructor: creates a move-copy of the given list
+	cList(cList&& rList) : _size(rList._size), _vectorSize(rList._vectorSize), _vector(rList._vector)
+	{
+		rList._Init();
+	}
+	#endif
 
 	// constructor a list from a raw data array
 	explicit inline cList(TYPE* pDataBegin, TYPE* pDataEnd) : _size((IDX)(pDataEnd-pDataBegin)), _vectorSize(_size)
@@ -163,15 +172,15 @@ public:
 	}
 
 	// copy the content from the given list
-	inline	cList&	operator=(const cList& rList)
+	inline cList&	operator=(const cList& rList)
 	{
 		return CopyOf(rList);
 	}
 
-	inline	cList&	CopyOf(const cList& rList, bool bForceResize=false)
+	inline cList&	CopyOf(const cList& rList, bool bForceResize=false)
 	{
 		if (this == &rList)
-			return (*this);
+			return *this;
 		if (bForceResize || _vectorSize < rList._vectorSize) {
 			_Release();
 			_vectorSize = rList._vectorSize;
@@ -187,13 +196,13 @@ public:
 			}
 		}
 		_size = rList._size;
-		return (*this);
+		return *this;
 	}
 
-	inline	cList&	CopyOf(const TYPE* pData, IDX nSize, bool bForceResize=false)
+	inline cList&	CopyOf(const TYPE* pData, IDX nSize, bool bForceResize=false)
 	{
 		if (_vector == pData)
-			return (*this);
+			return *this;
 		if (bForceResize || _vectorSize < nSize) {
 			_Release();
 			_vectorSize = nSize;
@@ -209,56 +218,72 @@ public:
 			}
 		}
 		_size = nSize;
-		return (*this);
+		return *this;
 	}
 
 	// release current list and swap the content with the given list
-	inline	cList&	CopyOfRemove(cList& rList)
+	inline cList&	CopyOfRemove(cList& rList)
 	{
 		if (this == &rList)
-			return (*this);
+			return *this;
 		_Release();
 		_size = rList._size;
 		_vectorSize = rList._vectorSize;
 		_vector = rList._vector;
 		rList._vector = NULL;
 		rList._size = rList._vectorSize = 0;
-		return (*this);
+		return *this;
 	}
 
-	inline	void	Join(const cList& rList)
+	inline cList&	Join(const cList& rList)
 	{
 		if (this == &rList || rList._size == 0)
-			return;
+			return *this;
 		const IDX newSize = _size + rList._size;
 		Reserve(newSize);
 		_ArrayCopyConstruct(_vector+_size, rList._vector, rList._size);
 		_size = newSize;
+		return *this;
 	}
-	inline	void	Join(const TYPE* pData, IDX nSize)
+	inline cList&	Join(const TYPE* pData, IDX nSize)
 	{
 		const IDX newSize = _size + nSize;
 		Reserve(newSize);
 		_ArrayCopyConstruct(_vector+_size, pData, nSize);
 		_size = newSize;
+		return *this;
 	}
 
-	inline	void	JoinRemove(cList& rList)
+	template <typename Functor>
+	inline cList&	JoinFunctor(IDX nSize, const Functor& functor) {
+		Reserve(_size + nSize);
+		if (useConstruct) {
+			for (IDX n=0; n<nSize; ++n)
+				new(_vector+_size++) TYPE(functor(n));
+		} else {
+			for (IDX n=0; n<nSize; ++n)
+				*(_vector+_size++) = functor(n);
+		}
+		return *this;
+	}
+
+	inline cList&	JoinRemove(cList& rList)
 	{
 		if (this == &rList || rList._size == 0)
-			return;
+			return *this;
 		const IDX newSize(_size + rList._size);
 		Reserve(newSize);
 		_ArrayMoveConstruct<true>(_vector+_size, rList._vector, rList._size);
 		_size = newSize;
 		rList._size = 0;
+		return *this;
 	}
 
 	// Swap the elements of the two lists.
-	inline	void	Swap(cList& rList)
+	inline cList&	Swap(cList& rList)
 	{
 		if (this == &rList)
-			return;
+			return *this;
 		const IDX tmpSize = _size;
 		_size = rList._size;
 		rList._size = tmpSize;
@@ -268,15 +293,25 @@ public:
 		TYPE* const tmpVector = _vector;
 		_vector = rList._vector;
 		rList._vector = tmpVector;
+		return *this;
 	}
 
 	// Swap the two elements.
-	inline	void	Swap(IDX idx1, IDX idx2)
+	inline void		Swap(IDX idx1, IDX idx2)
 	{
 		ASSERT(idx1 < _size && idx2 < _size);
 		TYPE tmp = _vector[idx1];
 		_vector[idx1] = _vector[idx2];
 		_vector[idx2] = tmp;
+	}
+	
+	inline bool		operator==(const cList& rList) const {
+		if (_size != rList._size)
+			return false;
+		for (IDX i = 0; i < _size; ++i)
+			if (_vector[i] != rList._vector[i])
+				return false;
+		return true;
 	}
 
 	// Set the allocated memory (normally used for types without constructor).
@@ -624,13 +659,22 @@ public:
 
 	inline TYPE&	GetNth(IDX index)
 	{
+		ASSERT(index < _size);
 		TYPE* const nth(Begin()+index);
 		std::nth_element(Begin(), nth, End());
 		return *nth;
 	}
-	inline TYPE&	GetMedian()
+	template <typename RTYPE = typename std::conditional<std::is_floating_point<TYPE>::value,TYPE,REAL>::type>
+	inline RTYPE	GetMedian()
 	{
-		return GetNth(_size >> 1);
+		ASSERT(_size > 0);
+		if (_size%2)
+			return static_cast<RTYPE>(GetNth(_size >> 1));
+		TYPE* const nth(Begin() + (_size>>1));
+		std::nth_element(Begin(), nth, End());
+		TYPE* const nth1(nth-1);
+		std::nth_element(Begin(), nth1, nth);
+		return (static_cast<RTYPE>(*nth1) + static_cast<RTYPE>(*nth)) / RTYPE(2);
 	}
 
 	inline TYPE		GetMean()
@@ -1408,106 +1452,93 @@ inline bool ValidIDX(const IDX_TYPE& idx) {
 
 
 // some test functions
-// run cListTest(99999);
-#if 0
-inline bool cListTestIter(unsigned elems) {
-	std::vector<int> arrR;
-	cList<int, int, 0> arr0;
-	cList<int, int, 1> arr1;
-	cList<int, int, 2> arr2;
-	cList<int, int, 1> arrC;
-	for (unsigned i=0; i<elems; ++i) {
-		const int e = RAND();
-		arrR.push_back(e);
-		arr0.InsertSort(e);
-		arr1.InsertSort(e);
-		arr2.InsertSort(e);
-		arrC.Insert(e);
-	}
-	std::sort(arrR.begin(), arrR.end());
-	arrC.Sort([](int a, int b) { return a<b; });
-	for (size_t i=0; i<arrR.size(); ++i) {
-		const int e = arrR[i];
-		if (arrC[i] != e ||
-			arr0[i] != e ||
-			arr1[i] != e ||
-			arr2[i] != e)
-		{
-			ASSERT("there is a problem" == NULL);
-			return false;
-		}
-	}
-	for (size_t i=0; i<6; ++i) {
-		const unsigned nDel = RAND()%arrR.size();
-		arrR.erase(arrR.begin()+nDel);
-		arr0.RemoveAtMove(nDel);
-		arr1.RemoveAtMove(nDel);
-		arr2.RemoveAtMove(nDel);
-	}
-	if (arrR.size() != arr0.GetSize() ||
-		arrR.size() != arr1.GetSize() ||
-		arrR.size() != arr2.GetSize())
-	{
-		ASSERT("there is a problem" == NULL);
-		return false;
-	}
-	for (size_t i=0; i<6; ++i) {
-		const unsigned nDel = RAND()%arrR.size();
-		const unsigned nCount = 1+RAND()%(arrR.size()/10+1);
-		if (nDel + nCount >= arrR.size())
-			continue;
-		arrR.erase(arrR.begin()+nDel, arrR.begin()+nDel+nCount);
-		arr0.RemoveAtMove(nDel, nCount);
-		arr1.RemoveAtMove(nDel, nCount);
-		arr2.RemoveAtMove(nDel, nCount);
-	}
-	if (arrR.size() != arr0.GetSize() ||
-		arrR.size() != arr1.GetSize() ||
-		arrR.size() != arr2.GetSize())
-	{
-		ASSERT("there is a problem" == NULL);
-		return false;
-	}
-	for (size_t i=0; i<arrR.size(); ++i) {
-		const int e = arrR[i];
-		if (arr0[i] != e ||
-			arr1[i] != e ||
-			arr2[i] != e)
-		{
-			ASSERT("there is a problem" == NULL);
-			return false;
-		}
-	}
-	cList<int, int, 1> arrS(1+RAND()%(2*elems));
-	for (size_t i=0; i<6; ++i) {
-		arrS.Insert(RAND());
-	}
-	arrS.RemoveLast(RAND()%arrS.GetSize());
-	arrS.CopyOf(&arrR[0], arrR.size());
-	for (size_t i=0; i<6; ++i) {
-		arrS.Insert(RAND());
-	}
-	arrS.RemoveLast(6);
-	for (size_t i=0; i<arrR.size(); ++i) {
-		const int e = arrR[i];
-		if (arrS[i] != e)
-		{
-			ASSERT("there is a problem" == NULL);
-			return false;
-		}
-	}
-	return true;
-}
+template <bool dummy>
 inline bool cListTest(unsigned iters) {
-	srand((unsigned)time(NULL));
 	for (unsigned i=0; i<iters; ++i) {
 		const unsigned elems = 100+RAND()%1000;
-		if (!cListTestIter(elems))
+		std::vector<int> arrR;
+		cList<int, int, 0> arr0;
+		cList<int, int, 1> arr1;
+		cList<int, int, 2> arr2;
+		cList<int, int, 1> arrC;
+		for (unsigned i=0; i<elems; ++i) {
+			const int e = RAND();
+			arrR.push_back(e);
+			arr0.InsertSort(e);
+			arr1.InsertSort(e);
+			arr2.InsertSort(e);
+			arrC.Insert(e);
+		}
+		std::sort(arrR.begin(), arrR.end());
+		arrC.Sort([](int a, int b) { return a<b; });
+		for (size_t i=0; i<arrR.size(); ++i) {
+			const int e = arrR[i];
+			if (arrC[i] != e ||
+				arr0[i] != e ||
+				arr1[i] != e ||
+				arr2[i] != e) {
+				ASSERT("there is a problem" == NULL);
+				return false;
+			}
+		}
+		for (size_t i=0; i<6; ++i) {
+			const unsigned nDel = RAND()%arrR.size();
+			arrR.erase(arrR.begin()+nDel);
+			arr0.RemoveAtMove(nDel);
+			arr1.RemoveAtMove(nDel);
+			arr2.RemoveAtMove(nDel);
+		}
+		if (arrR.size() != arr0.GetSize() ||
+			arrR.size() != arr1.GetSize() ||
+			arrR.size() != arr2.GetSize()) {
+			ASSERT("there is a problem" == NULL);
 			return false;
+		}
+		for (size_t i=0; i<6; ++i) {
+			const unsigned nDel = RAND()%arrR.size();
+			const unsigned nCount = 1+RAND()%(arrR.size()/10+1);
+			if (nDel + nCount >= arrR.size())
+				continue;
+			arrR.erase(arrR.begin()+nDel, arrR.begin()+nDel+nCount);
+			arr0.RemoveAtMove(nDel, nCount);
+			arr1.RemoveAtMove(nDel, nCount);
+			arr2.RemoveAtMove(nDel, nCount);
+		}
+		if (arrR.size() != arr0.GetSize() ||
+			arrR.size() != arr1.GetSize() ||
+			arrR.size() != arr2.GetSize()) {
+			ASSERT("there is a problem" == NULL);
+			return false;
+		}
+		for (size_t i=0; i<arrR.size(); ++i) {
+			const int e = arrR[i];
+			if (arr0[i] != e ||
+				arr1[i] != e ||
+				arr2[i] != e) {
+				ASSERT("there is a problem" == NULL);
+				return false;
+			}
+		}
+		cList<int, int, 1> arrS(1+RAND()%(2*elems));
+		for (size_t i=0; i<6; ++i) {
+			arrS.Insert(RAND());
+		}
+		arrS.RemoveLast(RAND()%arrS.GetSize());
+		arrS.CopyOf(&arrR[0], arrR.size());
+		for (size_t i=0; i<6; ++i) {
+			arrS.Insert(RAND());
+		}
+		arrS.RemoveLast(6);
+		for (size_t i=0; i<arrR.size(); ++i) {
+			const int e = arrR[i];
+			if (arrS[i] != e) {
+				ASSERT("there is a problem" == NULL);
+				return false;
+			}
+		}
 	}
 	return true;
 }
-#endif
 /*----------------------------------------------------------------*/
 
 
@@ -1571,6 +1602,14 @@ public:
 		ASSERT(index < _size);
 		return _vector[index];
 	}
+	inline bool operator==(const cListFixed& rList) const {
+		if (_size != rList._size)
+			return false;
+		for (IDX i = 0; i < _size; ++i)
+			if (_vector[i] != rList._vector[i])
+				return false;
+		return true;
+	}
 	inline TYPE& AddEmpty() {
 		ASSERT(_size < N);
 		return _vector[_size++];
@@ -1596,6 +1635,7 @@ public:
 			memcpy(_vector+index, _vector+(--_size), sizeof(TYPE));
 	}
 	inline void Empty() {
+		_ArrayDestruct(_vector, _size);
 		_size = 0;
 	}
 	inline void Sort() {

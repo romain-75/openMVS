@@ -147,6 +147,7 @@ void Scene::Empty()
 	images.Release();
 	scene.Release();
 	sceneName.clear();
+	meshName.clear();
 }
 void Scene::Release()
 {
@@ -224,6 +225,8 @@ bool Scene::Open(LPCTSTR fileName, LPCTSTR meshFileName)
 	DEBUG_EXTRA("Loading: '%s'", Util::getFileNameExt(fileName).c_str());
 	Empty();
 	sceneName = fileName;
+	if (meshFileName)
+		meshName = meshFileName;
 
 	// load the scene
 	WORKING_FOLDER = Util::getFilePath(fileName);
@@ -232,33 +235,42 @@ bool Scene::Open(LPCTSTR fileName, LPCTSTR meshFileName)
 		return false;
 	if (meshFileName) {
 		// load given mesh
-		scene.mesh.Load(meshFileName);
+		if (!scene.mesh.Load(meshFileName)) {
+			// try to load as a point-cloud
+			scene.pointcloud.Load(meshFileName);
+		}
 	}
-	if (scene.IsEmpty())
-		return false;
+	if (!scene.pointcloud.IsEmpty())
+		scene.pointcloud.PrintStatistics(scene.images.data(), &scene.obb);
 
 	#if 1
 	// create octree structure used to accelerate selection functionality
-	events.AddEvent(new EVTComputeOctree(this));
+	if (!scene.IsEmpty())
+		events.AddEvent(new EVTComputeOctree(this));
 	#endif
 
 	// init scene
 	AABB3d bounds(true);
-	AABB3d imageBounds(true);
 	Point3d center(Point3d::INF);
-	if (!scene.pointcloud.IsEmpty()) {
-		bounds = scene.pointcloud.GetAABB(MINF(3u,scene.nCalibratedImages));
-		if (bounds.IsEmpty())
-			bounds = scene.pointcloud.GetAABB();
-		center = scene.pointcloud.GetCenter();
-	}
-	if (!scene.mesh.IsEmpty()) {
-		scene.mesh.ComputeNormalFaces();
-		bounds.Insert(scene.mesh.GetAABB());
-		center = scene.mesh.GetCenter();
+	if (scene.IsBounded()) {
+		bounds = AABB3d(scene.obb.GetAABB());
+		center = bounds.GetCenter();
+	} else {
+		if (!scene.pointcloud.IsEmpty()) {
+			bounds = scene.pointcloud.GetAABB(MINF(3u,scene.nCalibratedImages));
+			if (bounds.IsEmpty())
+				bounds = scene.pointcloud.GetAABB();
+			center = scene.pointcloud.GetCenter();
+		}
+		if (!scene.mesh.IsEmpty()) {
+			scene.mesh.ComputeNormalFaces();
+			bounds.Insert(scene.mesh.GetAABB());
+			center = scene.mesh.GetCenter();
+		}
 	}
 
 	// init images
+	AABB3d imageBounds(true);
 	images.Reserve(scene.images.size());
 	FOREACH(idxImage, scene.images) {
 		const MVS::Image& imageData = scene.images[idxImage];
@@ -267,6 +279,10 @@ bool Scene::Open(LPCTSTR fileName, LPCTSTR meshFileName)
 		images.emplace_back(idxImage);
 		imageBounds.InsertFull(imageData.camera.C);
 	}
+	if (imageBounds.IsEmpty())
+		imageBounds.Enlarge(0.5);
+	if (bounds.IsEmpty())
+		bounds = imageBounds;
 
 	// init and load texture
 	if (scene.mesh.HasTexture()) {
@@ -298,12 +314,15 @@ bool Scene::Open(LPCTSTR fileName, LPCTSTR meshFileName)
 		images.size()<2?1.f:(float)imageBounds.EnlargePercent(REAL(1)/images.size()).GetSize().norm()));
 	window.camera.maxCamID = images.size();
 	window.SetName(String::FormatString((name + _T(": %s")).c_str(), Util::getFileName(fileName).c_str()));
+	window.clbkSaveScene = DELEGATEBINDCLASS(Window::ClbkSaveScene, &Scene::Save, this);
 	window.clbkExportScene = DELEGATEBINDCLASS(Window::ClbkExportScene, &Scene::Export, this);
+	window.clbkCenterScene = DELEGATEBINDCLASS(Window::ClbkCenterScene, &Scene::Center, this);
 	window.clbkCompilePointCloud = DELEGATEBINDCLASS(Window::ClbkCompilePointCloud, &Scene::CompilePointCloud, this);
 	window.clbkCompileMesh = DELEGATEBINDCLASS(Window::ClbkCompileMesh, &Scene::CompileMesh, this);
+	window.clbkTogleSceneBox = DELEGATEBINDCLASS(Window::ClbkTogleSceneBox, &Scene::TogleSceneBox, this);
 	if (scene.IsBounded())
 		window.clbkCompileBounds = DELEGATEBINDCLASS(Window::ClbkCompileBounds, &Scene::CompileBounds, this);
-	if (!bounds.IsEmpty())
+	if (!scene.IsEmpty())
 		window.clbkRayScene = DELEGATEBINDCLASS(Window::ClbkRayScene, &Scene::CastRay, this);
 	window.Reset(!scene.pointcloud.IsEmpty()&&!scene.mesh.IsEmpty()?Window::SPR_NONE:Window::SPR_ALL,
 		MINF(2u,images.size()));
@@ -311,7 +330,43 @@ bool Scene::Open(LPCTSTR fileName, LPCTSTR meshFileName)
 }
 
 // export the scene
-bool Scene::Export(LPCTSTR _fileName, LPCTSTR exportType, bool losslessTexture) const
+bool Scene::Save(LPCTSTR _fileName, bool bRescaleImages)
+{
+	if (!IsOpen())
+		return false;
+	REAL imageScale = 0;
+	if (bRescaleImages) {
+		window.SetVisible(false);
+		std::cout << "Enter image resolution scale: ";
+		String strScale;
+		std::cin >> strScale;
+		window.SetVisible(true);
+		imageScale = strScale.From<REAL>(0);
+	}
+	const String fileName(_fileName != NULL ? String(_fileName) : Util::insertBeforeFileExt(sceneName, _T("_new")));
+	MVS::Mesh mesh;
+	if (!scene.mesh.IsEmpty() && !meshName.empty())
+		mesh.Swap(scene.mesh);
+	if (imageScale > 0 && imageScale < 1) {
+		// scale and save images
+		const String folderName(Util::getFilePath(MAKE_PATH_FULL(WORKING_FOLDER_FULL, fileName)) + String::FormatString("images%d" PATH_SEPARATOR_STR, ROUND2INT(imageScale*100)));
+		if (!scene.ScaleImages(0, imageScale, folderName)) {
+			DEBUG("error: can not scale scene images to '%s'", folderName.c_str());
+			return false;
+		}
+	}
+	if (!scene.Save(fileName, scene.mesh.IsEmpty() ? ARCHIVE_MVS : ARCHIVE_DEFAULT)) {
+		DEBUG("error: can not save scene to '%s'", fileName.c_str());
+		return false;
+	}
+	if (!mesh.IsEmpty())
+		scene.mesh.Swap(mesh);
+	sceneName = fileName;
+	return true;
+}
+
+// export the scene
+bool Scene::Export(LPCTSTR _fileName, LPCTSTR exportType) const
 {
 	if (!IsOpen())
 		return false;
@@ -320,12 +375,30 @@ bool Scene::Export(LPCTSTR _fileName, LPCTSTR exportType, bool losslessTexture) 
 	const String fileName(_fileName != NULL ? String(_fileName) : sceneName);
 	const String baseFileName(Util::getFileFullName(fileName));
 	const bool bPoints(scene.pointcloud.Save(lastFileName=(baseFileName+_T("_pointcloud.ply"))));
-	const bool bMesh(scene.mesh.Save(lastFileName=(baseFileName+_T("_mesh")+(exportType?exportType:(Util::getFileExt(fileName)==_T(".obj")?_T(".obj"):_T(".ply")))), true, losslessTexture));
+	const bool bMesh(scene.mesh.Save(lastFileName=(baseFileName+_T("_mesh")+(exportType?exportType:(Util::getFileExt(fileName)==_T(".obj")?_T(".obj"):_T(".ply")))), cList<String>(), true));
 	#if TD_VERBOSE != TD_VERBOSE_OFF
 	if (VERBOSITY_LEVEL > 2 && (bPoints || bMesh))
 		scene.ExportCamerasMLP(Util::getFileFullName(lastFileName)+_T(".mlp"), lastFileName);
 	#endif
-	return (bPoints || bMesh);
+	AABB3f aabb(true);
+	if (scene.IsBounded()) {
+		std::ofstream fs(baseFileName+_T("_roi.txt"));
+		if (fs)
+			fs << scene.obb;
+		aabb = scene.obb.GetAABB();
+	} else
+	if (!scene.pointcloud.IsEmpty()) {
+		aabb = scene.pointcloud.GetAABB();
+	} else
+	if (!scene.mesh.IsEmpty()) {
+		aabb = scene.mesh.GetAABB();
+	}
+	if (!aabb.IsEmpty()) {
+		std::ofstream fs(baseFileName+_T("_roi_box.txt"));
+		if (fs)
+			fs << aabb;
+	}
+	return bPoints || bMesh;
 }
 
 void Scene::CompilePointCloud()
@@ -362,6 +435,12 @@ void Scene::CompileMesh()
 	if (scene.mesh.IsEmpty())
 		return;
 	ReleaseMesh();
+	if (scene.mesh.faceNormals.empty())
+		scene.mesh.ComputeNormalFaces();
+	// translate, normalize and flip Y axis of the texture coordinates
+	MVS::Mesh::TexCoordArr normFaceTexcoords;
+	if (scene.mesh.HasTexture())
+		scene.mesh.FaceTexcoordsNormalize(normFaceTexcoords, true);
 	listMesh = glGenLists(1);
 	glNewList(listMesh, GL_COMPILE);
 	// compile mesh
@@ -375,8 +454,8 @@ void Scene::CompileMesh()
 		const MVS::Mesh::Normal& n = scene.mesh.faceNormals[i];
 		glNormal3fv(n.ptr());
 		for (int j = 0; j < 3; ++j) {
-			if (!scene.mesh.faceTexcoords.IsEmpty() && window.bRenderTexture) {
-				const MVS::Mesh::TexCoord& t = scene.mesh.faceTexcoords[i * 3 + j];
+			if (!normFaceTexcoords.empty() && window.bRenderTexture) {
+				const MVS::Mesh::TexCoord& t = normFaceTexcoords[i * 3 + j];
 				glTexCoord2fv(t.ptr());
 			}
 			const MVS::Mesh::Vertex& p = scene.mesh.vertices[face[j]];
@@ -389,9 +468,11 @@ void Scene::CompileMesh()
 
 void Scene::CompileBounds()
 {
-	if (!scene.IsBounded())
-		return;
 	obbPoints.Release();
+	if (!scene.IsBounded()) {
+		window.bRenderBounds = false;
+		return;
+	}
 	window.bRenderBounds = !window.bRenderBounds;
 	if (window.bRenderBounds) {
 		static const uint8_t indices[12*2] = {
@@ -422,9 +503,9 @@ void Scene::Draw()
 	if (listMesh) {
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
-		if (!scene.mesh.faceTexcoords.IsEmpty() && window.bRenderTexture) {
+		if (!scene.mesh.faceTexcoords.empty() && window.bRenderTexture) {
 			glEnable(GL_TEXTURE_2D);
-			textures.First().Bind();
+			textures.front().Bind();
 			glCallList(listMesh);
 			glDisable(GL_TEXTURE_2D);
 		} else {
@@ -441,18 +522,8 @@ void Scene::Draw()
 			Image& image = images[idx];
 			const MVS::Image& imageData = scene.images[image.idx];
 			const MVS::Camera& camera = imageData.camera;
-			// change coordinates system to the camera space
-			glPushMatrix();
-			glMultMatrixd((GLdouble*)TransL2W((const Matrix3x3::EMat)camera.R, -(const Point3::EVec)camera.C).data());
-			glPointSize(window.pointSize+1.f);
-			glDisable(GL_TEXTURE_2D);
-			// draw camera position and image center
-			const double scaleFocal(window.camera.scaleF);
-			glBegin(GL_POINTS);
-			glColor3f(1,0,0); glVertex3f(0,0,0); // camera position
-			glColor3f(0,1,0); glVertex3f(0,0,(float)scaleFocal); // image center
-			glEnd();
 			// cache image corner coordinates
+			const double scaleFocal(window.camera.scaleF);
 			const Point2d pp(camera.GetPrincipalPoint());
 			const double focal(camera.GetFocalLength()/scaleFocal);
 			const double cx(-pp.x/focal);
@@ -463,6 +534,17 @@ void Scene::Draw()
 			const Point3d ic2(cx, py, scaleFocal);
 			const Point3d ic3(px, py, scaleFocal);
 			const Point3d ic4(px, cy, scaleFocal);
+			// change coordinates system to the camera space
+			glPushMatrix();
+			glMultMatrixd((GLdouble*)TransL2W((const Matrix3x3::EMat)camera.R, -(const Point3::EVec)camera.C).data());
+			glPointSize(window.pointSize+1.f);
+			glDisable(GL_TEXTURE_2D);
+			// draw camera position and image center
+			glBegin(GL_POINTS);
+			glColor3f(1,0,0); glVertex3f(0,0,0); // camera position
+			glColor3f(0,1,0); glVertex3f(0,0,(float)scaleFocal); // image center
+			glColor3f(0,0,1); glVertex3d((0.5*imageData.width-pp.x)/focal, cy, scaleFocal); // image up
+			glEnd();
 			// draw image thumbnail
 			const bool bSelectedImage(idx == window.camera.currentCamID);
 			if (bSelectedImage) {
@@ -573,7 +655,7 @@ void Scene::Draw()
 		glDepthMask(GL_FALSE);
 		glBegin(GL_LINES);
 		glColor3f(0.5f,0.1f,0.8f);
-		for (int i=0; i<obbPoints.size(); i+=2) {
+		for (IDX i=0; i<obbPoints.size(); i+=2) {
 			glVertex3fv(obbPoints[i+0].ptr());
 			glVertex3fv(obbPoints[i+1].ptr());
 		}
@@ -590,6 +672,37 @@ void Scene::Loop()
 		Draw();
 		glfwWaitEvents();
 	}
+}
+
+
+void Scene::Center()
+{
+	if (!IsOpen())
+		return;
+	scene.Center();
+	CompilePointCloud();
+	CompileMesh();
+	if (scene.IsBounded()) {
+		window.bRenderBounds = false;
+		CompileBounds();
+	}
+	events.AddEvent(new EVTComputeOctree(this));
+}
+
+void Scene::TogleSceneBox()
+{
+	if (!IsOpen())
+		return;
+	const auto EnlargeAABB = [](AABB3f aabb) {
+		return aabb.Enlarge(aabb.GetSize().maxCoeff()*0.03f);
+	};
+	if (scene.IsBounded())
+		scene.obb = OBB3f(true);
+	else if (!scene.mesh.IsEmpty())
+		scene.obb.Set(EnlargeAABB(scene.mesh.GetAABB()));
+	else if (!scene.pointcloud.IsEmpty())
+		scene.obb.Set(EnlargeAABB(scene.pointcloud.GetAABB(window.minViews)));
+	CompileBounds();
 }
 
 
@@ -624,7 +737,7 @@ void Scene::CastRay(const Ray3& ray, int action)
 			window.selectionPoints[0] = scene.mesh.vertices[face[0]];
 			window.selectionPoints[1] = scene.mesh.vertices[face[1]];
 			window.selectionPoints[2] = scene.mesh.vertices[face[2]];
-			window.selectionPoints[3] = (ray.m_pOrig + ray.m_vDir*intRay.pick.dist).cast<float>();
+			window.selectionPoints[3] = ray.GetPoint(intRay.pick.dist).cast<float>();
 			window.selectionType = Window::SEL_TRIANGLE;
 			window.selectionTime = now;
 			window.selectionIdx = intRay.pick.idx;

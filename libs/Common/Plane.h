@@ -35,6 +35,8 @@ public:
 	typedef Eigen::Matrix<TYPE,DIMS,1> POINT;
 	typedef SEACAVE::TAABB<TYPE,DIMS> AABB;
 	typedef SEACAVE::TRay<TYPE,DIMS> RAY;
+	enum { numScalar = DIMS+1 };
+	enum { numParams = numScalar-1 };
 
 	VECTOR	m_vN;	// plane normal vector
 	TYPE	m_fD;	// distance to origin
@@ -51,11 +53,22 @@ public:
 	inline void Set(const VECTOR&, const POINT&);
 	inline void Set(const POINT&, const POINT&, const POINT&);
 	inline void Set(const TYPE p[DIMS+1]);
+
+	int Optimize(const POINT*, size_t, int maxIters=100);
+	template <typename RobustNormFunctor>
+	int Optimize(const POINT*, size_t, const RobustNormFunctor& robust, int maxIters=100);
+
+	inline void Invalidate();
+	inline bool IsValid() const;
+
 	inline void Negate();
+	inline TPlane Negated() const;
 
 	inline TYPE Distance(const TPlane&) const;
 	inline TYPE Distance(const POINT&) const;
 	inline TYPE DistanceAbs(const POINT&) const;
+
+	inline POINT ProjectPoint(const POINT&) const;
 
 	inline GCLASS Classify(const POINT&) const;
 	inline GCLASS Classify(const AABB&) const;
@@ -66,8 +79,8 @@ public:
 	bool Intersects(const TPlane& plane, RAY& ray) const;
 	bool Intersects(const AABB& aabb) const;
 
-	inline TYPE& operator [] (BYTE i) { ASSERT(i<=DIMS); return m_vN.data()[i]; }
-	inline TYPE operator [] (BYTE i) const { ASSERT(i<=DIMS); return m_vN.data()[i]; }
+	inline TYPE& operator [] (BYTE i) { ASSERT(i<numScalar); return m_vN.data()[i]; }
+	inline TYPE operator [] (BYTE i) const { ASSERT(i<numScalar); return m_vN.data()[i]; }
 
 	#ifdef _USE_BOOST
 	// implement BOOST serialization
@@ -78,6 +91,19 @@ public:
 	}
 	#endif
 }; // class TPlane
+/*----------------------------------------------------------------*/
+
+template <typename TYPE, typename TYPEW=TYPE, bool bFitLineMode=false>
+struct FitPlaneOnline {
+	TYPEW sumX, sumSqX, sumXY, sumXZ;
+	TYPEW sumY, sumSqY, sumYZ;
+	TYPEW sumZ, sumSqZ;
+	size_t size;
+	FitPlaneOnline();
+	void Update(const TPoint3<TYPE>& P);
+	TPoint3<TYPEW> GetModel(TPoint3<TYPEW>& avg, TPoint3<TYPEW>& dir) const;
+	template <typename TYPEE> TPoint3<TYPEE> GetPlane(TPlane<TYPEE,3>& plane) const;
+};
 /*----------------------------------------------------------------*/
 
 

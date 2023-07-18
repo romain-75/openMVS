@@ -55,6 +55,7 @@ public:
 	String name;
 
 	String sceneName;
+	String meshName;
 	MVS::Scene scene;
 	Window window;
 	ImageArr images; // scene photos
@@ -85,7 +86,8 @@ public:
 
 	bool Init(const cv::Size&, LPCTSTR windowName, LPCTSTR fileName=NULL, LPCTSTR meshFileName=NULL);
 	bool Open(LPCTSTR fileName, LPCTSTR meshFileName=NULL);
-	bool Export(LPCTSTR fileName, LPCTSTR exportType=NULL, bool losslessTexture=false) const;
+	bool Save(LPCTSTR fileName=NULL, bool bRescaleImages=false);
+	bool Export(LPCTSTR fileName, LPCTSTR exportType=NULL) const;
 	void CompilePointCloud();
 	void CompileMesh();
 	void CompileBounds();
@@ -93,6 +95,8 @@ public:
 	void Draw();
 	void Loop();
 
+	void Center();
+	void TogleSceneBox();
 	void CastRay(const Ray3&, int);
 protected:
 	static void* ThreadWorker(void*);

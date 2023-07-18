@@ -66,7 +66,7 @@ template <typename TYPE> class TRMatrixBase;
 	  where (x, y, z) is the normalized direction vector of the axis
 	  and phi is the angle of rtoation.
 
-	  Some usefull quaternions:
+	  Some useful quaternions:
 	  x 	       y 	        z 	       w          Description
 	  0 	       0 	        0 	       1          Identity quaternion,
 													  no rotation
@@ -123,7 +123,7 @@ public:
 	*/
 	inline void Invert();
 
-	/** makes TQuaternion-representation uniqe, ensuring vector lies
+	/** makes TQuaternion-representation unique, ensuring vector lies
 	in upper (by real part) hemisphere. (inplace)
 	*/
 	inline void MakeUnique();
@@ -141,7 +141,7 @@ public:
 	*/
 	inline void MultLeft(const TQuaternion<TYPE> &quat);
 
-	/** rotates the given Vector qith the quaternion ( q v q* )
+	/** rotates the given Vector with the quaternion ( q v q* )
 	the resulting vector is given in res
 	@returns 0 in case of no error
 	@author Daniel Grest, June 2003
@@ -295,6 +295,9 @@ public:
 
 	/** @brief Initialization with the rotation from roll/pitch/yaw (in rad) */
 	inline TRMatrixBase(TYPE roll, TYPE pitch, TYPE yaw);
+
+	/** @brief Initialization with the rotation from direction dir0 to direction dir1 */
+	inline TRMatrixBase(const Vec& dir0, const Vec& dir1);
 
 	template <typename T> inline TRMatrixBase& operator = (const cv::Matx<T,3,3>& rhs) { BaseBase::operator = (rhs); return *this; }
 	inline TRMatrixBase& operator = (const cv::Mat& rhs) { BaseBase::operator = (rhs); return *this; }
@@ -458,6 +461,12 @@ public:
 
 		@author jw */
 	void SetFromHV(const Vec& xh, const Vec& vy);
+
+	/** @brief Create rotation matrix that rotates from dir0 to dir1
+		@param dir0 represents the first (reference) direction vector
+		@param dir1 represents the second (target) direction vector
+		@author cDc */
+	TRMatrixBase& SetFromDir2Dir(const Vec& dir0, const Vec& dir1);
 
 	/** @brief Calculates quaternion representation for this rotation matrix
 		@attention Scalar part of quaternion will always be non-negative

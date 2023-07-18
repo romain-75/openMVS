@@ -22,9 +22,6 @@
 #endif
 #include <pwd.h>
 #endif
-#ifdef _SUPPORT_CPP17
-#include <filesystem>
-#endif // _SUPPORT_CPP17
 
 using namespace SEACAVE;
 
@@ -437,7 +434,7 @@ String Util::GetOSInfo()
 
 String Util::GetDiskInfo(const String& path)
 {
-	#ifdef _SUPPORT_CPP17
+	#if defined(_SUPPORT_CPP17) && (!defined(__GNUC__) || (__GNUC__ > 7))
 
 	const std::filesystem::space_info si = std::filesystem::space(path.c_str());
 	return String::FormatString("%s (%s) space", formatBytes(si.available).c_str(), formatBytes(si.capacity).c_str());
@@ -670,6 +667,13 @@ bool OSSupportsAVX()
 // print details about the current build and PC
 void Util::LogBuild()
 {
+	LOG(_T("OpenMVS %s v%u.%u.%u"),
+		#ifdef _ENVIRONMENT64
+		_T("x64"),
+		#else
+		_T("x32"),
+		#endif
+		OpenMVS_MAJOR_VERSION, OpenMVS_MINOR_VERSION, OpenMVS_PATCH_VERSION);
 	#if TD_VERBOSE == TD_VERBOSE_OFF
 	LOG(_T("Build date: ") __DATE__);
 	#else

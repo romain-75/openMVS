@@ -96,7 +96,7 @@ public:
 		DepthMap depthMap; // depth-map
 		BaryMap baryMap; // barycentric coordinates
 	};
-	typedef SEACAVE::cList<View,const View&,2> ViewsArr;
+	typedef CLISTDEF2(View) ViewsArr;
 
 	// used to render a mesh for optimization
 	struct RasterMesh : TRasterMesh<RasterMesh> {
@@ -411,7 +411,7 @@ void MeshRefine::ListVertexFacesPost()
 void MeshRefine::ListCameraFaces()
 {
 	// extract array of faces viewed by each camera
-	typedef SEACAVE::cList<Mesh::FaceIdxArr,const Mesh::FaceIdxArr&,2> CameraFacesArr;
+	typedef CLISTDEF2(Mesh::FaceIdxArr) CameraFacesArr;
 	CameraFacesArr arrCameraFaces(images.GetSize()); {
 		Mesh::Octree octree;
 		Mesh::FacesInserter::CreateOctree(octree, scene.mesh);
@@ -488,14 +488,14 @@ void MeshRefine::SubdivideMesh(uint32_t maxArea, float fDecimate, unsigned nClos
 	if (!bNoDecimation) {
 		if (fDecimate > 0.f) {
 			// decimate to the desired resolution
-			scene.mesh.Clean(fDecimate, 0.f, false, nCloseHoles, 0, false);
-			scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+			scene.mesh.Clean(fDecimate, 0.f, false, nCloseHoles, 0u, 0.f, false);
+			scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 
 			#ifdef MESHOPT_ENSUREEDGESIZE
 			// make sure there are no edges too small or too long
 			if (nEnsureEdgeSize > 0 && bNoSimplification) {
 				scene.mesh.EnsureEdgeSize();
-				scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+				scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 			}
 			#endif
 
@@ -515,14 +515,14 @@ void MeshRefine::SubdivideMesh(uint32_t maxArea, float fDecimate, unsigned nClos
 				maxAreas.Empty();
 
 				// decimate to the auto detected resolution
-				scene.mesh.Clean(MAXF(0.1f, fMedianArea/fMaxArea), 0.f, false, nCloseHoles, 0, false);
-				scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+				scene.mesh.Clean(MAXF(0.1f, fMedianArea/fMaxArea), 0.f, false, nCloseHoles, 0u, 0.f, false);
+				scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 
 				#ifdef MESHOPT_ENSUREEDGESIZE
 				// make sure there are no edges too small or too long
 				if (nEnsureEdgeSize > 0 && bNoSimplification) {
 					scene.mesh.EnsureEdgeSize();
-					scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+					scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 				}
 				#endif
 
@@ -554,7 +554,7 @@ void MeshRefine::SubdivideMesh(uint32_t maxArea, float fDecimate, unsigned nClos
 	#endif
 	{
 		scene.mesh.EnsureEdgeSize();
-		scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0, true);
+		scene.mesh.Clean(1.f, 0.f, false, nCloseHoles, 0u, 0.f, true);
 	}
 	#endif
 
@@ -934,7 +934,7 @@ void MeshRefine::ComputePhotometricGradient(
 			const Point3 X(rayA*REAL(depthA)+cameraA.C);
 			// project point in second image and
 			// projection Jacobian matrix in the second image of the 3D point on the surface
-			const float depthB(ProjectVertex(cameraB.P.val, X.ptr(), xB.ptr(), xJac.val));
+			MAYBEUNUSED const float depthB(ProjectVertex(cameraB.P.val, X.ptr(), xB.ptr(), xJac.val));
 			ASSERT(depthB > 0);
 			// compute gradient in image B
 			const TMatrix<Real,1,2> gB(viewB.imageGrad.sample<Sampler,View::Grad>(sampler, xB));
@@ -1280,7 +1280,7 @@ protected:
 bool Scene::RefineMesh(unsigned nResolutionLevel, unsigned nMinResolution, unsigned nMaxViews,
 					   float fDecimateMesh, unsigned nCloseHoles, unsigned nEnsureEdgeSize, unsigned nMaxFaceArea,
 					   unsigned nScales, float fScaleStep,
-					   unsigned nReduceMemory, unsigned nAlternatePair, float fRegularityWeight, float fRatioRigidityElasticity, float fThPlanarVertex, float fGradientStep)
+					   unsigned nAlternatePair, float fRegularityWeight, float fRatioRigidityElasticity, float fGradientStep, float fThPlanarVertex, unsigned nReduceMemory)
 {
 	if (pointcloud.IsEmpty() && !ImagesHaveNeighbors())
 		SampleMeshWithVisibility();
@@ -1292,8 +1292,8 @@ bool Scene::RefineMesh(unsigned nResolutionLevel, unsigned nMinResolution, unsig
 	// run the mesh optimization on multiple scales (coarse to fine)
 	for (unsigned nScale=0; nScale<nScales; ++nScale) {
 		// init images
-		const Real scale(POWI(fScaleStep, (int)(nScales-nScale-1)));
-		const Real step(POWI(2.f, (int)(nScales-nScale)));
+		const Real scale(POWI(fScaleStep, nScales-nScale-1));
+		const Real step(POWI(2.f, nScales-nScale));
 		DEBUG_ULTIMATE("Refine mesh at: %.2f image scale", scale);
 		if (!refine.InitImages(scale, Real(0.12)*step+Real(0.2)))
 			return false;

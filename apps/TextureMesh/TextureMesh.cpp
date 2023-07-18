@@ -49,10 +49,12 @@ namespace OPT {
 String strInputFileName;
 String strOutputFileName;
 String strMeshFileName;
+String strViewsFileName;
 float fDecimateMesh;
 unsigned nCloseHoles;
 unsigned nResolutionLevel;
 unsigned nMinResolution;
+unsigned minCommonCameras;
 float fOutlierThreshold;
 float fRatioDataSmoothness;
 bool bGlobalSeamLeveling;
@@ -60,6 +62,8 @@ bool bLocalSeamLeveling;
 unsigned nTextureSizeMultiple;
 unsigned nRectPackingHeuristic;
 uint32_t nColEmpty;
+float fSharpnessWeight;
+int nIgnoreMaskLabel;
 unsigned nOrthoMapResolution;
 unsigned nArchiveType;
 int nProcessPriority;
@@ -82,7 +86,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 		("help,h", "produce this help message")
 		("working-folder,w", boost::program_options::value<std::string>(&WORKING_FOLDER), "working directory (default current directory)")
 		("config-file,c", boost::program_options::value<std::string>(&OPT::strConfigFileName)->default_value(APPNAME _T(".cfg")), "file name containing program options")
-		("export-type", boost::program_options::value<std::string>(&OPT::strExportType)->default_value(_T("glb")), "file type used to export the 3D scene (ply, obj, glb or gltf)")
+		("export-type", boost::program_options::value<std::string>(&OPT::strExportType)->default_value(_T("ply")), "file type used to export the 3D scene (ply, obj, glb or gltf)")
 		("archive-type", boost::program_options::value(&OPT::nArchiveType)->default_value(ARCHIVE_DEFAULT), "project archive type: 0-text, 1-binary, 2-compressed binary")
 		("process-priority", boost::program_options::value(&OPT::nProcessPriority)->default_value(-1), "process priority (below normal by default)")
 		("max-threads", boost::program_options::value(&OPT::nMaxThreads)->default_value(0), "maximum number of threads (0 for using all available cores)")
@@ -94,6 +98,9 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 			2
 			#endif
 			), "verbosity level")
+		#endif
+		#ifdef _USE_CUDA
+		("cuda-device", boost::program_options::value(&CUDA::desiredDeviceID)->default_value(-1), "CUDA device number to be used to texture the mesh (-2 - CPU processing, -1 - best GPU, >=0 - device index)")
 		#endif
 		;
 
@@ -108,12 +115,15 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 		("min-resolution", boost::program_options::value(&OPT::nMinResolution)->default_value(640), "do not scale images lower than this resolution")
 		("outlier-threshold", boost::program_options::value(&OPT::fOutlierThreshold)->default_value(6e-2f), "threshold used to find and remove outlier face textures (0 - disabled)")
 		("cost-smoothness-ratio", boost::program_options::value(&OPT::fRatioDataSmoothness)->default_value(0.1f), "ratio used to adjust the preference for more compact patches (1 - best quality/worst compactness, ~0 - worst quality/best compactness)")
+		("virtual-face-images", boost::program_options::value(&OPT::minCommonCameras)->default_value(0), "generate texture patches using virtual faces composed of coplanar triangles sharing at least this number of views (0 - disabled, 3 - good value)")
 		("global-seam-leveling", boost::program_options::value(&OPT::bGlobalSeamLeveling)->default_value(true), "generate uniform texture patches using global seam leveling")
 		("local-seam-leveling", boost::program_options::value(&OPT::bLocalSeamLeveling)->default_value(true), "generate uniform texture patch borders using local seam leveling")
 		("texture-size-multiple", boost::program_options::value(&OPT::nTextureSizeMultiple)->default_value(0), "texture size should be a multiple of this value (0 - power of two)")
 		("patch-packing-heuristic", boost::program_options::value(&OPT::nRectPackingHeuristic)->default_value(3), "specify the heuristic used when deciding where to place a new patch (0 - best fit, 3 - good speed, 100 - best speed)")
 		("empty-color", boost::program_options::value(&OPT::nColEmpty)->default_value(0x00FF7F27), "color used for faces not covered by any image")
+		("sharpness-weight", boost::program_options::value(&OPT::fSharpnessWeight)->default_value(0.5f), "amount of sharpness to be applied on the texture (0 - disabled)")
 		("orthographic-image-resolution", boost::program_options::value(&OPT::nOrthoMapResolution)->default_value(0), "orthographic image resolution to be generated from the textured mesh - the mesh is expected to be already geo-referenced or at least properly oriented (0 - disabled)")
+		("ignore-mask-label", boost::program_options::value(&OPT::nIgnoreMaskLabel)->default_value(-1), "label value to ignore in the image mask, stored in the MVS scene or next to each image with '.mask.png' extension (-1 - auto estimate mask for lens distortion, -2 - disabled)")
 		;
 
 	// hidden options, allowed both on command line and
@@ -121,6 +131,7 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 	boost::program_options::options_description hidden("Hidden options");
 	hidden.add_options()
 		("mesh-file", boost::program_options::value<std::string>(&OPT::strMeshFileName), "mesh file name to texture (overwrite the existing mesh)")
+		("views-file", boost::program_options::value<std::string>(&OPT::strViewsFileName), "file name containing the list of views to be used for texturing (optional)")
 		;
 
 	boost::program_options::options_description cmdline_options;
@@ -158,7 +169,6 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 
 	// validate input
 	Util::ensureValidPath(OPT::strInputFileName);
-	Util::ensureUnifySlash(OPT::strInputFileName);
 	if (OPT::vm.count("help") || OPT::strInputFileName.IsEmpty()) {
 		boost::program_options::options_description visible("Available options");
 		visible.add(generic).add(config);
@@ -180,9 +190,9 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 
 	// initialize optional options
 	Util::ensureValidPath(OPT::strOutputFileName);
-	Util::ensureUnifySlash(OPT::strOutputFileName);
 	if (OPT::strOutputFileName.IsEmpty())
 		OPT::strOutputFileName = Util::getFileFullName(OPT::strInputFileName) + _T("_texture.mvs");
+	Util::ensureValidPath(OPT::strViewsFileName);
 
 	// initialize global options
 	Process::setCurrentProcessPriority((Process::Priority)OPT::nProcessPriority);
@@ -214,6 +224,40 @@ void Finalize()
 }
 
 } // unnamed namespace
+
+IIndexArr ParseViewsFile(const String& filename, const Scene& scene) {
+	IIndexArr views;
+	std::ifstream file(filename);
+	if (!file.good()) {
+		VERBOSE("error: unable to open views file '%s'", filename.c_str());
+		return views;
+	}
+	while (true) {
+		String imageName;
+		std::getline(file, imageName);
+		if (file.fail() || imageName.empty())
+			break;
+		LPTSTR endIdx;
+		const IDX idx(strtoul(imageName, &endIdx, 10));
+		const size_t szIndex(*endIdx == '\0' ? size_t(0) : imageName.size());
+		FOREACH(idxImage, scene.images) {
+			const Image& image = scene.images[idxImage];
+			if (szIndex == 0) {
+				// try to match by index
+				if (image.ID != idx)
+					continue;
+			} else {
+				// try to match by file name
+				const String name(Util::getFileNameExt(image.name));
+				if (name.size() < szIndex || _tcsnicmp(name, imageName, szIndex) != 0)
+					continue;
+			}
+			views.emplace_back(idxImage);
+			break;
+		}
+	}
+	return views;
+}
 
 int main(int argc, LPCTSTR* argv)
 {
@@ -247,17 +291,23 @@ int main(int argc, LPCTSTR* argv)
 	// decimate to the desired resolution
 	if (OPT::fDecimateMesh < 1.f) {
 		ASSERT(OPT::fDecimateMesh > 0.f);
-		scene.mesh.Clean(OPT::fDecimateMesh, 0.f, false, OPT::nCloseHoles, 0u, false);
-		scene.mesh.Clean(1.f, 0.f, false, 0, 0u, true); // extra cleaning to remove non-manifold problems created by closing holes
+		scene.mesh.Clean(OPT::fDecimateMesh, 0.f, false, OPT::nCloseHoles, 0u, 0.f, false);
+		scene.mesh.Clean(1.f, 0.f, false, 0u, 0u, 0.f, true); // extra cleaning to remove non-manifold problems created by closing holes
 		#if TD_VERBOSE != TD_VERBOSE_OFF
 		if (VERBOSITY_LEVEL > 3)
 			scene.mesh.Save(baseFileName +_T("_decim")+OPT::strExportType);
 		#endif
 	}
+	// fetch list of views to be used for texturing
+	IIndexArr views;
+	if (!OPT::strViewsFileName.empty())
+		views = ParseViewsFile(MAKE_PATH_SAFE(OPT::strViewsFileName), scene);
 
 	// compute mesh texture
 	TD_TIMER_START();
-	if (!scene.TextureMesh(OPT::nResolutionLevel, OPT::nMinResolution, OPT::fOutlierThreshold, OPT::fRatioDataSmoothness, OPT::bGlobalSeamLeveling, OPT::bLocalSeamLeveling, OPT::nTextureSizeMultiple, OPT::nRectPackingHeuristic, Pixel8U(OPT::nColEmpty)))
+	if (!scene.TextureMesh(OPT::nResolutionLevel, OPT::nMinResolution, OPT::minCommonCameras, OPT::fOutlierThreshold, OPT::fRatioDataSmoothness,
+						   OPT::bGlobalSeamLeveling, OPT::bLocalSeamLeveling, OPT::nTextureSizeMultiple, OPT::nRectPackingHeuristic, Pixel8U(OPT::nColEmpty),
+						   OPT::fSharpnessWeight, OPT::nIgnoreMaskLabel, views))
 		return EXIT_FAILURE;
 	VERBOSE("Mesh texturing completed: %u vertices, %u faces (%s)", scene.mesh.vertices.GetSize(), scene.mesh.faces.GetSize(), TD_TIMER_GET_FMT().c_str());
 
