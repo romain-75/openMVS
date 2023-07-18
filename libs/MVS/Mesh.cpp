@@ -1766,18 +1766,14 @@ bool Mesh::Save(const String& fileName, const cList<String>& comments, bool bBin
 {
 	TD_TIMER_STARTD();
 	const String ext(Util::getFileExt(fileName).ToLower());
-	const String baseFileName(Util::getFileName(fileName));
 	bool ret;
 	if (ext == _T(".obj"))
 		ret = SaveOBJ(fileName);
-	else {
-    	if (ext == _T(".gltf"))
-            ret = SaveGLTF(String(baseFileName+_T(".gltf")), false);
-        else
-            ret = SaveGLTF(String(baseFileName+_T(".glb")), true);
-
-        ret &= SavePLY(String(baseFileName+_T(".ply")), comments, bBinary);
-	}
+	else
+	if (ext == _T(".gltf") || ext == _T(".glb"))
+		ret = SaveGLTF(fileName, ext == _T(".glb"));
+	else
+		ret = SavePLY(ext != _T(".ply") ? String(fileName+_T(".ply")) : fileName, comments, bBinary);
 	if (!ret)
 		return false;
 	DEBUG_EXTRA("Mesh saved: %u vertices, %u faces (%s)", vertices.GetSize(), faces.GetSize(), TD_TIMER_GET_FMT().c_str());

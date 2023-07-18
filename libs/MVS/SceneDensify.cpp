@@ -47,6 +47,9 @@ extern void outputLogSQL(std::string nature, std::string chaine1, std::string ch
 #define DENSE_USE_OPENMP
 #endif
 
+double profondeurMaximaleLocal = -1.0;
+double hauteurMaximaleLocal = -1.0;
+
 
 // S T R U C T S ///////////////////////////////////////////////////
 
@@ -336,8 +339,10 @@ bool DepthMapsData::InitViews(DepthData& depthData, IIndex idxNeighbor, IIndex n
 		FOREACH(idx, depthData.neighbors) {
 			const ViewScore& neighbor = depthData.neighbors[idx];
 			if ((numNeighbors && depthData.images.GetSize() > numNeighbors) ||
-				(neighbor.score < fMinScore))
+                (neighbor.score < fMinScore))
 				break;
+            if (neighbor.idx.scale < 0.)
+                continue;
 			DepthData::ViewData& viewTrg = depthData.images.AddEmpty();
 			viewTrg.pImageData = &scene.images[neighbor.idx.ID];
 			viewTrg.scale = neighbor.idx.scale;
@@ -1049,7 +1054,7 @@ bool DepthMapsData::GapInterpolation(DepthData& depthData)
 
 
 // filter depth-map, one pixel at a time, using confidence based fusion or neighbor pixels
-bool DepthMapsData::FilterDepthMap(DepthData& depthDataRef, const IIndexArr& idxNeighbors, bool bAdjust)
+bool DepthMapsData::FilterDepthMap(DepthData& depthDataRef, const IIndexArr& idxNeighbors, bool bAdjust, double profondeurMaximale, double hauteurMaximale)
 {
 	TD_TIMER_STARTD();
 
@@ -1087,12 +1092,12 @@ bool DepthMapsData::FilterDepthMap(DepthData& depthDataRef, const IIndexArr& idx
 			for (int j=0; j<size.width; ++j) {
 				const ImageRef x(j,i);
 				const Depth depth(depthData.depthMap(x));
-				if (depth == 0)
+				if (depth == 0 || (profondeurMaximale > 0. && depth > profondeurMaximale))
 					continue;
 				ASSERT(depth > 0);
 				const Point3 X(camera.TransformPointI2W(Point3(x.x,x.y,depth)));
 				const Point3 camX(cameraRef.TransformPointW2C(X));
-				if (camX.z <= 0)
+				if (camX.z <= 0 || (hauteurMaximale > 0. && camX.y > hauteurMaximale) )
 					continue;
 				#if 0
 				// set depth on the rounded image projection only
@@ -1633,12 +1638,15 @@ void DenseDepthMapData::SignalCompleteDepthmapFilter()
 static void* DenseReconstructionEstimateTmp(void*);
 static void* DenseReconstructionFilterTmp(void*);
 
-bool Scene::DenseReconstruction(int nFusionMode, bool bCrop2ROI, float fBorderROI, int indexPremiereImage, int indexDerniereImage)
+bool Scene::DenseReconstruction(int nFusionMode, bool bCrop2ROI, float fBorderROI, int indexPremiereImage, int indexDerniereImage, double profondeurMaximale, double hauteurMaximale)
 {
 	DenseDepthMapData data(*this, nFusionMode);
+	
+	profondeurMaximaleLocal = profondeurMaximale;
+	hauteurMaximaleLocal = hauteurMaximale;
 
 	// estimate depth-maps
-	if (!ComputeDepthMaps(data, indexPremiereImage, indexDerniereImage))
+	if (!ComputeDepthMaps(data, indexPremiereImage, indexDerniereImage, profondeurMaximale, hauteurMaximale))
 		return false;
 	if (ABS(nFusionMode) == 1)
 		return true;
@@ -1704,7 +1712,7 @@ bool Scene::DenseReconstruction(int nFusionMode, bool bCrop2ROI, float fBorderRO
 
 // do first half of dense reconstruction: depth map computation
 // results are saved to "data"
-bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, int indexDerniereImage)
+bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, int indexDerniereImage, double profondeurMaximale, double hauteurMaximale)
 {
 	// compute point-cloud from the existing mesh
 	if (!mesh.IsEmpty() && !ImagesHaveNeighbors()) {
@@ -1934,7 +1942,7 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 				pThread->join();
 		} else {
 			// single-thread execution
-			DenseReconstructionFilter((void*)&data);
+			DenseReconstructionFilter((void*)&data, profondeurMaximale, hauteurMaximale);
 		}
 		GET_LOGCONSOLE().Play();
 		if (!data.events.IsEmpty())
@@ -2071,9 +2079,13 @@ void Scene::DenseReconstructionEstimate(void* pData)
 				}
 			}
 			#endif
-			// save compute depth-map for this image
-			if (!depthData.depthMap.empty())
-				depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), data.nEstimationGeometricIter < 0 ? "dmap" : "geo.dmap"));
+			// save compute depth-map for this image			
+			if (!depthData.depthMap.empty()){
+				depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), data.nEstimationGeometricIter < 0 ? "dmap" :
+				 "geo.dmap"));
+				 ExportPointCloud(ComposeDepthFilePath(depthData.GetView().GetID(), "ply"), *depthData.images.First().pImageData, depthData.depthMap, depthData.normalMap);
+			}
+
 			depthData.ReleaseImages();
 			depthData.Release();
 			        outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)data.progress->processed/(float)data.progress->total),data.progress->msg,false);
@@ -2092,12 +2104,12 @@ void Scene::DenseReconstructionEstimate(void* pData)
 
 void* DenseReconstructionFilterTmp(void* arg) {
 	DenseDepthMapData& dataThreads = *((DenseDepthMapData*)arg);
-	dataThreads.scene.DenseReconstructionFilter(arg);
+	dataThreads.scene.DenseReconstructionFilter(arg, profondeurMaximaleLocal, hauteurMaximaleLocal);
 	return NULL;
 }
 
 // filter estimated depth-maps
-void Scene::DenseReconstructionFilter(void* pData)
+void Scene::DenseReconstructionFilter(void* pData, double profondeurMaximale, double hauteurMaximale)
 {
 	DenseDepthMapData& data = *((DenseDepthMapData*)pData);
 	CAutoPtr<Event> evt;
@@ -2130,7 +2142,7 @@ void Scene::DenseReconstructionFilter(void* pData)
 					break;
 			}
 			// filter the depth-map for this image
-			if (data.depthMaps.FilterDepthMap(depthData, idxNeighbors, OPTDENSE::bFilterAdjust)) {
+			if (data.depthMaps.FilterDepthMap(depthData, idxNeighbors, OPTDENSE::bFilterAdjust, profondeurMaximale, hauteurMaximale)) {
 				// load the filtered maps after all depth-maps were filtered
 				data.events.AddEvent(new EVTAdjustDepthMap(evtImage.idxImage));
 			}

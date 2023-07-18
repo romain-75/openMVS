@@ -7,6 +7,7 @@
 
 #include "Common.h"
 #include "PLY.h"
+#include <iostream>
 
 using namespace SEACAVE;
 
@@ -270,8 +271,10 @@ bool PLY::header_complete()
 {
 	if (!filename.empty()) {
 		ostream = new File(filename.c_str(), File::WRITE, File::CREATE | File::TRUNCATE);
-		if (!((File*)ostream)->isOpen())
+		if (!((File*)ostream)->isOpen()){
+		    std::cout << "fichier non ouvert" << std::endl;
 			return false;
+        }
 		ostream = new BufferedOutputStream<true>(ostream, FILE_WRITE_MINBUF_SIZE);
 	}
 
@@ -514,8 +517,10 @@ bool PLY::read(LPCSTR filename)
 {
 	this->filename = filename;
 	istream = new File(filename, File::READ, File::OPEN);
-	if (!((File*)istream)->isOpen())
+	if (!((File*)istream)->isOpen()){
+        std::cout << "fichier non ouvert" << std::endl;
 		return false;
+	}
 	return read(new BufferedInputStream<true>(istream, FILE_READ_MINBUF_SIZE));
 }
 
@@ -532,9 +537,12 @@ bool PLY::read(ISTREAM* f)
 	char *orig_line;
 	STRISTREAM sfp(istream);
 	char **words = get_words(sfp, &nwords, &orig_line);
-	if (words == NULL)
+	if (words == NULL){
+		std::cout << "pas de mot clé valide" << std::endl;
 		return false;
+		}
 	if (!equal_strings (words[0], "ply")) {
+    	std::cout << "pas de mot clé PLY" << std::endl;
 		free(words);
 		return false;
 	}
@@ -543,16 +551,20 @@ bool PLY::read(ISTREAM* f)
 	/* parse words */
 	while ((words = get_words(sfp, &nwords, &orig_line)) != NULL) {
 		if (equal_strings(words[0], "format")) {
-			if (nwords != 3)
+			if (nwords != 3){
+			    std::cout << "commande format invalide" << std::endl;
 				return false;
+				}
 			if (equal_strings(words[1], "ascii"))
 				this->file_type = ASCII;
 			else if (equal_strings(words[1], "binary_big_endian"))
 				this->file_type = BINARY_BE;
 			else if (equal_strings(words[1], "binary_little_endian"))
 				this->file_type = BINARY_LE;
-			else
+			else{
+    			std::cout << "commande " << words[0] << " non reconnue" << std::endl;
 				return false;
+				}
 			this->version = (float)atof(words[2]);
 		}
 		else if (equal_strings(words[0], "element"))
@@ -1702,6 +1714,8 @@ void PLY::add_element(const char **words, int /*nwords*/)
 	PlyElement *elem = new PlyElement;
 	elem->name = words[1];
 	elem->num = atoi(words[2]);
+	
+	std::cout << "element " << elem->name << ", " << elem->num << std::endl;
 
 	/* add the new element to the object's list */
 	this->elems.push_back(elem);

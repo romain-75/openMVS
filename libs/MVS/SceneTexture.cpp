@@ -47,7 +47,7 @@ using namespace MVS;
 
 // uncomment to enable multi-threading based on OpenMP
 #ifdef _USE_OPENMP
-#define TEXOPT_USE_OPENMP
+//#define TEXOPT_USE_OPENMP
 #endif
 
 // uncomment to use SparseLU for solving the linear systems
@@ -303,7 +303,9 @@ struct MeshTexture {
 		void AddEdge(const TexCoord& p0, const TexCoord& p1) {
 			const TexCoord p01(p1 - p0);
 			const float length(norm(p01));
-			ASSERT(length > 0.f);
+			//ASSERT(length > 0.f);
+			if (length <= 0.f)
+			    return;
 			const int nSamples(ROUND2INT(MAXF(length, 1.f) * 2.f)-1);
 			AccumColor edgeAccumColor;
 			for (int s=0; s<nSamples; ++s) {
@@ -1237,7 +1239,9 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 						for (boost::tie(ei, eie) = boost::out_edges(f, graph); ei != eie; ++ei) {
 							ASSERT(f == (FIndex)ei->m_source);
 							const FIndex fAdj((FIndex)ei->m_target);
-							ASSERT(components.empty() || components[f] == components[fAdj]);
+							//ASSERT(components.empty() || components[f] == components[fAdj]);
+                            if(! components.empty() && components[f] != components[fAdj])
+                                continue;
 							if (f < fAdj) // add edges only once
 								inference.SetNeighbors(f, fAdj);
 						}
@@ -1365,7 +1369,9 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 			for (boost::tie(ei, eie) = boost::edges(graph); ei != eie; ++ei) {
 				const FIndex fSource((FIndex)ei->m_source);
 				const FIndex fTarget((FIndex)ei->m_target);
-				ASSERT(components[fSource] == components[fTarget]);
+				//ASSERT(components[fSource] == components[fTarget]);
+				if(components[fSource] != components[fTarget])
+    				continue ;
 				if (labels[fSource] != labels[fTarget])
 					seamEdges.emplace_back(fSource, fTarget);
 			}
@@ -1388,7 +1394,9 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 				const Label label(labels[f]);
 				const FIndex c(components[f]);
 				TexturePatch& texturePatch = texturePatches[c];
-				ASSERT(texturePatch.label == label || texturePatch.faces.IsEmpty());
+				//ASSERT(texturePatch.label == label || texturePatch.faces.IsEmpty());
+				if (texturePatch.label != label && ! texturePatch.faces.IsEmpty())
+				    continue;
 				if (label == NO_ID) {
 					texturePatch.label = NO_ID;
 					texturePatches.Last().faces.Insert(f);
@@ -1441,7 +1449,9 @@ void MeshTexture::CreateSeamVertices()
 		ASSERT(edge.i < edge.j);
 		const uint32_t idxPatch0(mapIdxPatch[components[edge.i]]);
 		const uint32_t idxPatch1(mapIdxPatch[components[edge.j]]);
-		ASSERT(idxPatch0 != idxPatch1 || idxPatch0 == numPatches);
+		//ASSERT(idxPatch0 != idxPatch1 || idxPatch0 == numPatches);
+        if(idxPatch0 == idxPatch1 && idxPatch0 != numPatches)
+            continue;
 		if (idxPatch0 == idxPatch1)
 			continue;
 		seamVertices.ReserveExtra(2);

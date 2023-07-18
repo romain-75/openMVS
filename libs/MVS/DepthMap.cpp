@@ -792,8 +792,7 @@ void DepthEstimator::ProcessPixel(IDX idx)
 		InitPlane(neighbor.depth, neighbor.normal);
 		#endif
 		const float nconf(ScorePixel(neighbor.depth, neighbor.normal));
-//		std::cout << nconf << std::endl;
-		ASSERT(nconf >= 0 && nconf < 3);
+		ASSERT(nconf >= 0 && nconf <= 2);
 		if (conf > nconf) {
 			conf = nconf;
 			depth = neighbor.depth;

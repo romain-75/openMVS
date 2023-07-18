@@ -752,7 +752,7 @@ inline TPoint3<TYPE> PerspectiveCorrectBarycentricCoordinates(const TPoint3<TYPE
 // Encodes/decodes a normalized 3D vector in two parameters for the direction
 template<typename T, typename TR>
 inline void Normal2Dir(const TPoint3<T>& d, TPoint2<TR>& p) {
-	//ASSERT(ISEQUAL(norm(d), T(1)));
+	ASSERT(ISEQUAL(norm(d), T(1)));
 	p.x = TR(atan2(d.y, d.x));
 	p.y = TR(acos(d.z));
 }

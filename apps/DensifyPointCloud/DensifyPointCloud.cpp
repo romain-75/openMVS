@@ -73,6 +73,8 @@ String strConfigFileName;
 boost::program_options::variables_map vm;
 int indexPremiereImage;
 int indexDerniereImage;
+double profondeurMaximale;
+double hauteurMaximale;
 } // namespace OPT
 
 // initialize and parse the command line parameters
@@ -150,14 +152,23 @@ bool Initialize(size_t argc, LPCTSTR* argv)
 		("fusion-mode", boost::program_options::value(&OPT::nFusionMode)->default_value(0), "depth-maps fusion mode (-2 - fuse disparity-maps, -1 - export disparity-maps only, 0 - depth-maps & fusion, 1 - export depth-maps only)")
 		("postprocess-dmaps", boost::program_options::value(&nOptimize)->default_value(7), "flags used to filter the depth-maps after estimation (0 - disabled, 1 - remove-speckles, 2 - fill-gaps, 4 - adjust-filter)")
 		("filter-point-cloud", boost::program_options::value(&OPT::thFilterPointCloud)->default_value(0), "filter dense point-cloud based on visibility (0 - disabled)")
+<<<<<<< HEAD
 		("export-number-views", boost::program_options::value(&OPT::nExportNumViews)->default_value(0), "export points with >= number of views (0 - disabled)")
 		("indexPremiereImage", boost::program_options::value(&OPT::indexPremiereImage)->default_value(-1), "index de la premiere image traitee (-1 - disabled)")
 		("indexDerniereImage", boost::program_options::value(&OPT::indexDerniereImage)->default_value(-1), "index de de derniere image traitee (-1 - disabled)")
 		("nbIterationsGeometrique", boost::program_options::value(&nEstimationGeometricIters)->default_value(2), "nb iterations géométrique (0 - disabled)")
+=======
+		("export-number-views", boost::program_options::value(&OPT::nExportNumViews)->default_value(0), "export points with >= number of views (0 - disabled, <0 - save MVS project too)")
+>>>>>>> d6068aca506ea11553c9016a122f73ffcffbaf7d
         ("roi-border", boost::program_options::value(&OPT::fBorderROI)->default_value(0), "add a border to the region-of-interest when cropping the scene (0 - disabled, >0 - percentage, <0 - absolute)")
         ("estimate-roi", boost::program_options::value(&OPT::nEstimateROI)->default_value(2), "estimate and set region-of-interest (0 - disabled, 1 - enabled, 2 - adaptive)")
         ("crop-to-roi", boost::program_options::value(&OPT::bCrop2ROI)->default_value(true), "crop scene using the region-of-interest")
         ("remove-dmaps", boost::program_options::value(&bRemoveDmaps)->default_value(false), "remove depth-maps after fusion")
+        ("indexPremiereImage", boost::program_options::value(&OPT::indexPremiereImage)->default_value(-1), "index de la premiere image traitee (-1 - disabled)")
+        ("indexDerniereImage", boost::program_options::value(&OPT::indexDerniereImage)->default_value(-1), "index de de derniere image traitee (-1 - disabled)")
+        ("profondeurMaximale", boost::program_options::value(&OPT::profondeurMaximale)->default_value(-1.0), "profondeur maximale (-1 - disabled)")
+        ("hauteurMaximale", boost::program_options::value(&OPT::hauteurMaximale)->default_value(-1.0), "hauteur maximale (-1 - disabled)")
+        ("nbIterationsGeometrique", boost::program_options::value(&nEstimationGeometricIters)->default_value(2), "nb iterations géométrique (0 - disabled)")
 		("tower-mode", boost::program_options::value(&OPT::nTowerMode)->default_value(3), "add a cylinder of points in the center of ROI; scene assume to be Z-up oriented (0 - disabled, 1 - replace, 2 - append, 3 - select neighbors, <0 - force tower mode)")
         ;
 
@@ -416,7 +427,7 @@ int main(int argc, LPCTSTR* argv)
 			scene.pointcloud.PrintStatistics(scene.images.data(), &scene.obb);
 		#endif
 		TD_TIMER_START();
-        if (!scene.DenseReconstruction(OPT::nFusionMode, OPT::bCrop2ROI, OPT::fBorderROI,OPT::indexPremiereImage,OPT::indexDerniereImage)) {
+        if (!scene.DenseReconstruction(OPT::nFusionMode, OPT::bCrop2ROI, OPT::fBorderROI,OPT::indexPremiereImage,OPT::indexDerniereImage, OPT::profondeurMaximale, OPT::hauteurMaximale)) {
 			if (ABS(OPT::nFusionMode) != 1)
 				return EXIT_FAILURE;
 			VERBOSE("Depth-maps estimated (%s)", TD_TIMER_GET_FMT().c_str());
