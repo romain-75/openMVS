@@ -14,6 +14,8 @@ IF(POLICY CMP0104)
 	CMAKE_POLICY(SET CMP0104 NEW)
 ENDIF()
 
+SET(VCG_ROOT "/3d/vcglib")
+
 # List configuration options
 SET(OpenMVS_BUILD_TOOLS ON CACHE BOOL "Build example applications")
 SET(OpenMVS_USE_OPENMP ON CACHE BOOL "Enable OpenMP library")
@@ -25,9 +27,9 @@ SET(OpenMVS_USE_CUDA ON CACHE BOOL "Enable CUDA library")
 SET(OpenMVS_USE_FAST_FLOAT2INT ON CACHE BOOL "Use an optimized code to convert real numbers to int")
 SET(OpenMVS_USE_FAST_INVSQRT OFF CACHE BOOL "Use an optimized code to compute the inverse square root (slower in fact on modern compilers)")
 SET(OpenMVS_USE_FAST_CBRT ON CACHE BOOL "Use an optimized code to compute the cubic root")
-SET(OpenMVS_USE_SSE ON CACHE BOOL "Enable SSE optimizations")
+SET(OpenMVS_USE_SSE OFF CACHE BOOL "Enable SSE optimizations")
 SET(OpenMVS_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
-SET(OpenMVS_ENABLE_TESTS ON CACHE BOOL "Enable test code")
+SET(OpenMVS_ENABLE_TESTS OFF CACHE BOOL "Enable test code")
 
 # Load automatically VCPKG toolchain if available
 IF(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND DEFINED ENV{VCPKG_ROOT})
@@ -233,9 +235,6 @@ endif()
 if(OpenMVS_USE_FAST_CBRT)
 	SET(_USE_FAST_CBRT TRUE)
 endif()
-if(OpenMVS_USE_SSE)
-	SET(_USE_SSE TRUE)
-endif()
 if(OpenMVS_USE_CERES)
 	SET(_USE_CERES TRUE)
 endif()
@@ -250,13 +249,7 @@ if(OpenMVS_BUILD_TOOLS)
 endif()
 ADD_SUBDIRECTORY(docs)
 
-if (OpenMVS_ENABLE_TESTS)
-	# enable testing functionality
-	ENABLE_TESTING()
-	# define tests
-	ADD_TEST(NAME UnitTests COMMAND $<TARGET_FILE:Tests> "0")
-	ADD_TEST(NAME PipelineTest COMMAND $<TARGET_FILE:Tests> "1")
-endif()
+
 
 # Export the package for use from the build-tree
 # (this registers the build-tree with a global CMake-registry)

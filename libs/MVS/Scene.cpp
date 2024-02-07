@@ -133,6 +133,7 @@ bool Scene::LoadInterface(const String & fileName)
 		const uint32_t ID(images.size());
 		Image& imageData = images.emplace_back();
 		imageData.ID = (image.ID == NO_ID ? ID : image.ID);
+		std::cout << "image.ID : " << image.ID << std::endl;
 		imageData.name = image.name;
 		Util::ensureUnifySlash(imageData.name);
 		imageData.name = MAKE_PATH_FULL(WORKING_FOLDER_FULL, imageData.name);

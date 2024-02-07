@@ -1057,6 +1057,8 @@ bool DepthMapsData::GapInterpolation(DepthData& depthData)
 bool DepthMapsData::FilterDepthMap(DepthData& depthDataRef, const IIndexArr& idxNeighbors, bool bAdjust, double profondeurMaximale, double hauteurMaximale)
 {
 	TD_TIMER_STARTD();
+    
+    //std::cout << "map " << depthDataRef.GetView().GetID() << std::endl;
 
 	// count valid neighbor depth-maps
 	ASSERT(depthDataRef.IsValid() && !depthDataRef.IsEmpty());
@@ -1818,7 +1820,7 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 				#pragma omp critical
 				#endif
 				invalidIDs.InsertSort(idx);
-				std::cout << "Image " << idxImage << " ignoree" << std::endl;
+				//std::cout << "Image " << idxImage << " ignoree" << std::endl;
 			}
 		}
 		RFOREACH(i, invalidIDs) {
@@ -1882,7 +1884,7 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 			data.depthMaps.pmCUDA->Init(true);
 		}
 		#endif // _USE_CUDA
-		std::cout << "nEstimationGeometricIters : " << OPTDENSE::nEstimationGeometricIters << std::endl;
+		//std::cout << "nEstimationGeometricIters : " << OPTDENSE::nEstimationGeometricIters << std::endl;
 		while (++data.nEstimationGeometricIter < (int)OPTDENSE::nEstimationGeometricIters) {
 			// initialize the queue of images to be geometric processed
 			if (data.nEstimationGeometricIter+1 == (int)OPTDENSE::nEstimationGeometricIters)
@@ -1968,22 +1970,26 @@ void Scene::DenseReconstructionEstimate(void* pData)
 		switch (evt->GetID()) {
 		case EVT_PROCESSIMAGE: {
 			const EVTProcessImage& evtImage = *((EVTProcessImage*)(Event*)evt);
+			//std::cout << "evtImage.idxImage : " << (int) evtImage.idxImage << " / " << (int)data.images.size() << std::endl;
 			if (evtImage.idxImage >= data.images.size()) {
 				if (nMaxThreads > 1) {
 					// close working threads
 					data.events.AddEvent(new EVTClose);
 				}
+				//std::cout << "return" << std::endl;
 				return;
 			}
 			// select views to reconstruct the depth-map for this image
 			const IIndex idx = data.images[evtImage.idxImage];
 			DepthData& depthData(data.depthMaps.arrDepthData[idx]);
+			//std::cout << "data.scene.images[idx].ID : " << data.scene.images[idx].ID << std::endl;
 			const bool depthmapComputed(data.nFusionMode < 0 || (data.nFusionMode >= 0 && data.nEstimationGeometricIter < 0 && File::access(ComposeDepthFilePath(data.scene.images[idx].ID, "dmap"))));
 			// initialize images pair: reference image and the best neighbor view
 			ASSERT(data.neighborsMap.IsEmpty() || data.neighborsMap[evtImage.idxImage] != NO_ID);
 			if (!data.depthMaps.InitViews(depthData, data.neighborsMap.IsEmpty()?NO_ID:data.neighborsMap[evtImage.idxImage], OPTDENSE::nNumViews, !depthmapComputed, depthmapComputed ? -1 : (data.nEstimationGeometricIter >= 0 ? 1 : 0))) {
 				// process next image
 				data.events.AddEvent(new EVTProcessImage((IIndex)Thread::safeInc(data.idxImage)));
+				//std::cout << "InitViews : bof" << std::endl;
 				break;
 			}
 			// try to load already compute depth-map for this image
@@ -2000,11 +2006,13 @@ void Scene::DenseReconstructionEstimate(void* pData)
 				data.events.AddEvent(new EVTProcessImage((uint32_t)Thread::safeInc(data.idxImage)));
 			} else {
 				// estimate depth-map
+				//std::cout << "estimate depth-map" << std::endl;
 				data.events.AddEventFirst(new EVTEstimateDepthMap(evtImage.idxImage));
 			}
 			break; }
 
 		case EVT_ESTIMATEDEPTHMAP: {
+						//std::cout << "EVT_ESTIMATEDEPTHMAP depth-map" << std::endl;
 			const EVTEstimateDepthMap& evtImage = *((EVTEstimateDepthMap*)(Event*)evt);
 			// request next image initialization to be performed while computing this depth-map
 			data.events.AddEvent(new EVTProcessImage((uint32_t)Thread::safeInc(data.idxImage)));
@@ -2012,14 +2020,17 @@ void Scene::DenseReconstructionEstimate(void* pData)
 			data.sem.Wait();
 			if (data.nFusionMode >= 0) {
 				// extract depth-map using Patch-Match algorithm
+				//std::cout << "extract depth-map using Patch-Match algorithm" << std::endl;
 				data.depthMaps.EstimateDepthMap(data.images[evtImage.idxImage], data.nEstimationGeometricIter);
 			} else {
 				// extract disparity-maps using SGM algorithm
 				if (data.nFusionMode == -1) {
+					//std::cout << "extract depth-map using SGM algorithm" << std::endl;
 					data.sgm.Match(*this, data.images[evtImage.idxImage], OPTDENSE::nNumViews);
 				} else {
 					// fuse existing disparity-maps
 					const IIndex idx(data.images[evtImage.idxImage]);
+					//std::cout << "fuse existing disparity-maps" << std::endl;
 					DepthData& depthData(data.depthMaps.arrDepthData[idx]);
 					data.sgm.Fuse(*this, data.images[evtImage.idxImage], OPTDENSE::nNumViews, 2, depthData.depthMap, depthData.confMap);
 					if (OPTDENSE::nEstimateNormals == 2)
@@ -2135,6 +2146,7 @@ void Scene::DenseReconstructionFilter(void* pData, double profondeurMaximale, do
 				if (depthDataPair.IncRef(ComposeDepthFilePath(depthDataPair.GetView().GetID(), "dmap")) == 0) {
 					// signal error and terminate
 					data.events.AddEventFirst(new EVTFail);
+                    //std::cout << "event fail" << std::endl;
 					return;
 				}
 				idxNeighbors.Insert(n);
@@ -2169,6 +2181,7 @@ void Scene::DenseReconstructionFilter(void* pData, double profondeurMaximale, do
 			{
 				// signal error and terminate
 				data.events.AddEventFirst(new EVTFail);
+                //std::cout << "event fail 2 : " << depthData.GetView().GetID() << std::endl;
 				return;
 			}
 			ASSERT(depthData.GetRef() == 1);

@@ -289,7 +289,7 @@ int main(int argc, LPCTSTR* argv)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);// | _CRTDBG_CHECK_ALWAYS_DF);
 	#endif
 
-	if (!Initialize(argc, argv))
+    if (!Initialize(argc, argv))
 		return EXIT_FAILURE;
 
 	Scene scene(OPT::nMaxThreads);
