@@ -2080,13 +2080,13 @@ PointCloud Scene::BuildTowerMesh(const PointCloud& origPointCloud, const Point2f
 					topPoints.swap(botPoints);
 			}
 		}
-		mesh.Save("tower_mesh.ply");
+		mesh.Save(MAKE_PATH("tower_mesh.ply"));
 	} else
 	#endif
 	{
 		mesh.Release();
 	}
-	towerPC.Save("tower.ply");
+	towerPC.Save(MAKE_PATH("tower.ply"));
 	return towerPC;
 }
 
@@ -2108,9 +2108,9 @@ void Scene::InitTowerScene(const int towerMode)
 	mesh.Release();
 
 	const auto AppendPointCloud = [this](const PointCloud& towerPC) {
-		bool bHasNormal(pointcloud.normals.size() == pointcloud.GetSize());
-		bool bHasColor(pointcloud.colors.size() == pointcloud.GetSize());
-		bool bHasWeights(pointcloud.pointWeights.size() == pointcloud.GetSize());
+		bool bHasNormal(towerPC.normals.size() == towerPC.GetSize());
+		bool bHasColor(towerPC.colors.size() == towerPC.GetSize());
+		bool bHasWeights(towerPC.pointWeights.size() == towerPC.GetSize());
 		FOREACH(idxPoint, towerPC.points) {
 			pointcloud.points.emplace_back(towerPC.points[idxPoint]);
 			pointcloud.pointViews.emplace_back(towerPC.pointViews[idxPoint]);

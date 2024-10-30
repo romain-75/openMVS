@@ -699,16 +699,16 @@ typedef Eigen::Matrix<double,3,1> EVec3d;
 
 bool DetermineInputSource(const String& filenameTXT, const String& filenameBIN, std::ifstream& file, String& filenameCamera, bool& binary)
 {
-	file.open(filenameTXT);
-	if (file.good()) {
-		filenameCamera = filenameTXT;
-		binary = false;
-		return true;
-	}
 	file.open(filenameBIN, std::ios::binary);
 	if (file.good()) {
 		filenameCamera = filenameBIN;
 		binary = true;
+		return true;
+	}
+	file.open(filenameTXT);
+	if (file.good()) {
+		filenameCamera = filenameTXT;
+		binary = false;
 		return true;
 	}
 	VERBOSE("error: unable to open file '%s'", filenameTXT.c_str());
