@@ -848,26 +848,22 @@ void Mesh::Clean(float fDecimate, float fSpurious, bool bRemoveSpikes, unsigned 
 	// remove spurious components
 	if (fSpurious > 0) {
 		FloatArr edgeLens(0, mesh.EN());
-		for (CLEAN::Mesh::EdgeIterator ei=mesh.edge.begin(); ei!=mesh.edge.end(); ++ei) {
-			const CLEAN::Vertex::CoordType& P0((*ei).V(0)->P());
-			const CLEAN::Vertex::CoordType& P1((*ei).V(1)->P());
-			edgeLens.Insert((P1-P0).Norm());
+		for (CLEAN::Mesh::EdgeType& edge: mesh.edge) {
+			const CLEAN::Vertex::CoordType& P1(edge.V(1)->P());
+			const CLEAN::Vertex::CoordType& P0(edge.V(0)->P());
+			edgeLens.Insert((P1-P0).SquaredNorm());
 		}
-		#if 0
-		const auto ret(ComputeX84Threshold<float,float>(edgeLens.Begin(), edgeLens.size(), 3.f*fSpurious));
-		const float thLongEdge(ret.first+ret.second);
-		#else
-		const float thLongEdge(edgeLens.GetNth(edgeLens.size()*95/100)*fSpurious);
-		#endif
 		// remove faces with too long edges
+		const float thLongEdge(SQRT(edgeLens.GetNth(edgeLens.size()*95/100))*fSpurious);
 		const size_t numLongFaces(vcg::tri::UpdateSelection<CLEAN::Mesh>::FaceOutOfRangeEdge(mesh, 0, thLongEdge));
 		for (CLEAN::Mesh::FaceIterator fi=mesh.face.begin(); fi!=mesh.face.end(); ++fi)
 			if (!(*fi).IsD() && (*fi).IsS())
 				vcg::tri::Allocator<CLEAN::Mesh>::DeleteFace(mesh, *fi);
 		DEBUG_ULTIMATE("Removed %d faces with edges longer than %f", numLongFaces, thLongEdge);
 		// remove isolated components
+		const float thLongSize(SQRT(edgeLens.GetNth(edgeLens.size()*55/100))*fSpurious);
 		vcg::tri::UpdateTopology<CLEAN::Mesh>::FaceFace(mesh);
-		const std::pair<int, int> delInfo(vcg::tri::Clean<CLEAN::Mesh>::RemoveSmallConnectedComponentsDiameter(mesh, thLongEdge));
+		const std::pair<int, int> delInfo(vcg::tri::Clean<CLEAN::Mesh>::RemoveSmallConnectedComponentsDiameter(mesh, thLongSize));
 		DEBUG_ULTIMATE("Removed %d connected components out of %d", delInfo.second, delInfo.first);
 	}
 
