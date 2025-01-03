@@ -266,7 +266,7 @@ bool DepthData::Load(const String& fileName, unsigned flags)
 	Camera camera;
 	if (!ImportDepthDataRaw(fileName, imageFileName, IDs, imageSize, camera.K, camera.R, camera.C, dMin, dMax, depthMap, normalMap, confMap, viewsMap, flags))
 		return false;
-	ASSERT(!IsValid() || (IDs.size() == images.size() && IDs.front() == GetView().GetID()));
+	ASSERT(!IDs.empty() && (!IsValid() || IDs.front() == GetView().GetID()));
 	ASSERT(depthMap.size() == imageSize);
 	ASSERT(depthMap.size() == size);
 	return true;
@@ -1834,7 +1834,7 @@ bool MVS::ExportDepthDataRaw(const String& fileName, const String& imageFileName
 	Depth dMin, Depth dMax,
 	const DepthMap& depthMap, const NormalMap& normalMap, const ConfidenceMap& confMap, const ViewsMap& viewsMap)
 {
-	ASSERT(IDs.size() > 1 && IDs.size() < 256);
+	ASSERT(!IDs.empty() && IDs.size() < 256);
 	ASSERT(!depthMap.empty());
 	ASSERT(confMap.empty() || depthMap.size() == confMap.size());
 	ASSERT(viewsMap.empty() || depthMap.size() == viewsMap.size());

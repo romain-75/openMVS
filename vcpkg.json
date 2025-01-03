@@ -14,7 +14,7 @@
       "default-features": false
     },
     "eigen3",
-    "glew",
+    "glad",
     "glfw3",
     "libpng",
     {
@@ -24,7 +24,6 @@
         "openexr"
       ]
     },
-    "opengl",
     "tiff",
     "vcglib",
     "zlib"

@@ -186,8 +186,9 @@ bool Scene::Init(const cv::Size& size, LPCTSTR windowName, LPCTSTR fileName, LPC
 		return false;
 	if (!window.Init(size, windowName))
 		return false;
-	if (glewInit() != GLEW_OK)
+	if (gladLoadGL() == 0)
 		return false;
+    VERBOSE("OpenGL: %s %s", glGetString(GL_RENDERER), glGetString(GL_VERSION));
 	name = windowName;
 	window.clbkOpenScene = DELEGATEBINDCLASS(Window::ClbkOpenScene, &Scene::Open, this);
 

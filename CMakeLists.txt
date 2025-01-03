@@ -3,21 +3,27 @@
 ########################################################################
 #
 # Project-wide settings
-CMAKE_MINIMUM_REQUIRED(VERSION 3.10)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.18)
 IF(POLICY CMP0011)
+	# Included scripts do automatic cmake_policy() PUSH and POP.
 	CMAKE_POLICY(SET CMP0011 NEW)
 ENDIF()
-IF(POLICY CMP0072)
-	CMAKE_POLICY(SET CMP0072 NEW)
-ENDIF()
 IF(POLICY CMP0074)
+	# find_package() uses <PackageName>_ROOT variables.
 	CMAKE_POLICY(SET CMP0074 NEW)
 ENDIF()
 IF(POLICY CMP0104)
+	# Initialize CMAKE_CUDA_ARCHITECTURES when CMAKE_CUDA_COMPILER_ID is NVIDIA. Raise an error if CUDA_ARCHITECTURES is empty.
 	CMAKE_POLICY(SET CMP0104 NEW)
 ENDIF()
 IF(POLICY CMP0146)
-	CMAKE_POLICY(SET CMP0146 OLD) # not required, but forced by OpenCV old support for CUDA
+	# Use CMake's first-class CUDA language support instead of FindCUDA().
+	# note: not required, but forced by OpenCV old support for CUDA
+	CMAKE_POLICY(SET CMP0146 OLD)
+ENDIF()
+IF(POLICY CMP0167)
+	# The FindBoost module is removed.
+	CMAKE_POLICY(SET CMP0167 NEW)
 ENDIF()
 
 # List configuration options
@@ -97,17 +103,6 @@ if(OpenMVS_USE_OPENMP)
 		endif()
 	else()
 		MESSAGE("-- Can't find OpenMP. Continuing without it.")
-	endif()
-endif()
-
-if(OpenMVS_USE_OPENGL)
-	FIND_PACKAGE(OpenGL)
-	if(OPENGL_FOUND)
-		INCLUDE_DIRECTORIES(${OPENGL_INCLUDE_DIR})
-		ADD_DEFINITIONS(${OpenGL_DEFINITIONS})
-		SET(_USE_OPENGL TRUE)
-	else()
-		MESSAGE("-- Can't find OpenGL. Continuing without it.")
 	endif()
 endif()
 
@@ -208,10 +203,6 @@ if(Boost_FOUND)
 	INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 	ADD_DEFINITIONS(${Boost_DEFINITIONS})
 	LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
-	if(NOT MSVC AND DEFINED CMAKE_TOOLCHAIN_FILE)
-		# work around this missing library link in vcpkg
-		LIST(APPEND Boost_LIBRARIES zstd)
-	endif()
 	SET(_USE_BOOST TRUE)
 	if(OpenMVS_USE_PYTHON AND Boost_${Boost_EXTRA_COMPONENTS}_FOUND)
 		SET(_USE_BOOST_PYTHON TRUE)
