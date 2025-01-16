@@ -28,6 +28,7 @@ ENDIF()
 
 # List configuration options
 SET(OpenMVS_BUILD_TOOLS ON CACHE BOOL "Build example applications")
+SET(OpenMVS_BUILD_VIEWER ON CACHE BOOL "Build viewer application")
 SET(OpenMVS_USE_OPENMP ON CACHE BOOL "Enable OpenMP library")
 SET(OpenMVS_USE_BREAKPAD ON CACHE BOOL "Enable BreakPad library")
 SET(OpenMVS_USE_PYTHON ON CACHE BOOL "Enable Python library bindings")
@@ -40,12 +41,21 @@ SET(OpenMVS_USE_SSE ON CACHE BOOL "Enable SSE optimizations")
 SET(OpenMVS_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
 SET(OpenMVS_ENABLE_TESTS ON CACHE BOOL "Enable test code")
 
+# Disable CUDA on MacOS
+IF(APPLE)
+	SET(OpenMVS_USE_CUDA OFF)
+	MESSAGE(STATUS "Disabling CUDA on MacOS")
+ENDIF()
+
 # Load automatically VCPKG toolchain if available
 IF(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND DEFINED ENV{VCPKG_ROOT})
 	SET(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 	IF(NOT DEFINED VCPKG_TARGET_TRIPLET AND DEFINED ENV{VCPKG_DEFAULT_TRIPLET})
 		SET(VCPKG_TARGET_TRIPLET "$ENV{VCPKG_DEFAULT_TRIPLET}" CACHE STRING "")
 	ENDIF()
+ENDIF()
+IF(OpenMVS_BUILD_TOOLS AND OpenMVS_BUILD_VIEWER)
+	LIST(APPEND VCPKG_MANIFEST_FEATURES "viewer")
 ENDIF()
 IF(OpenMVS_USE_CUDA)
 	LIST(APPEND VCPKG_MANIFEST_FEATURES "cuda")
@@ -55,11 +65,10 @@ IF(OpenMVS_USE_PYTHON)
 	SET(PARTIAL_BUILD_SHARED_LIBS ON)
 ENDIF()
 
-# Name of the project.
-#
-# CMake files in this project can refer to the root source directory
-# as ${OpenMVS_SOURCE_DIR} and to the root binary directory as
-# ${OpenMVS_BINARY_DIR}.
+# Name of the project:
+#   CMake files in this project can refer to the root source directory
+#   as ${OpenMVS_SOURCE_DIR} and to the root binary directory as
+#   ${OpenMVS_BINARY_DIR}.
 PROJECT(OpenMVS LANGUAGES CXX)
 
 SET(OpenMVS_MAJOR_VERSION 2)
@@ -70,6 +79,19 @@ SET(OpenMVS_VERSION ${OpenMVS_MAJOR_VERSION}.${OpenMVS_MINOR_VERSION}.${OpenMVS_
 # Disable SSE on unsupported platforms
 IF(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|ARM|aarch64|AARCH64)")
 	SET(OpenMVS_USE_SSE OFF)
+	MESSAGE(STATUS "Disabling SSE on ARM platform")
+ENDIF()
+
+# Set default build type to Release if not already set and using single-configuration generator.
+IF(CMAKE_CONFIGURATION_TYPES)
+	MESSAGE(STATUS "Multi-configuration generator: ${CMAKE_GENERATOR}")
+ELSE()
+	IF(NOT CMAKE_BUILD_TYPE)
+		SET(CMAKE_BUILD_TYPE "Release" CACHE STRING
+			"Choose the type of build, options are: None(debug information only), Debug, Release, RelWithDebInfo, MinSizeRel."
+			FORCE) # FORCE to override user settings from command line if they are empty
+	ENDIF()
+	MESSAGE(STATUS "Build configuration: ${CMAKE_GENERATOR} - ${CMAKE_BUILD_TYPE}")
 ENDIF()
 
 # Define helper functions and macros.
@@ -94,9 +116,9 @@ if(OpenMVS_USE_OPENMP)
 	if(OPENMP_FOUND)
 		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 		SET(_USE_OPENMP TRUE)
-		#cmake only check for separate OpenMP library on AppleClang 7+
-		#https://github.com/Kitware/CMake/blob/42212f7539040139ecec092547b7d58ef12a4d72/Modules/FindOpenMP.cmake#L252
-		if (CMAKE_CXX_COMPILER_ID MATCHES "AppleClang" AND (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS "7.0"))
+		# cmake only check for separate OpenMP library on AppleClang 7+
+		# https://github.com/Kitware/CMake/blob/42212f7539040139ecec092547b7d58ef12a4d72/Modules/FindOpenMP.cmake#L252
+		if(CMAKE_CXX_COMPILER_ID MATCHES "AppleClang" AND (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS "7.0"))
 			SET(OpenMP_LIBS ${OpenMP_libomp_LIBRARY})
 			LIST(APPEND OpenMVS_EXTRA_LIBS ${OpenMP_LIBS})
 		endif()
@@ -109,6 +131,9 @@ if(OpenMVS_USE_CUDA)
 	INCLUDE(CheckLanguage)
 	CHECK_LANGUAGE(CUDA)
 	if(CMAKE_CUDA_COMPILER)
+		# Finding CUDA fails on some systems if paths to nvcc / cuda library are not set; ex. on linux:
+		# export PATH="/usr/local/cuda/bin:$PATH"
+		# export LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 		SET(CUDA_FOUND TRUE)
 		if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
 			SET(CMAKE_CUDA_ARCHITECTURES "native")

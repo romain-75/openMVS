@@ -14,8 +14,6 @@
       "default-features": false
     },
     "eigen3",
-    "glad",
-    "glfw3",
     "libpng",
     {
       "name": "opencv",
@@ -29,6 +27,13 @@
     "zlib"
   ],
   "features": {
+    "viewer": {
+      "description": "Viewer support in OpenMVS",
+      "dependencies": [
+        "glad",
+        "glfw3"
+      ]
+    },
     "cuda": {
       "description": "CUDA support for OpenMVS",
       "dependencies": [
