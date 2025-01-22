@@ -1432,9 +1432,10 @@ void MVS::EstimatePointNormals(const ImageArr& images, PointCloud& pointcloud, i
 	typedef kernel_t::Vector_3 vector_t;
 	typedef std::pair<point_t,vector_t> PointVectorPair;
 	// fetch the point set
-	std::vector<PointVectorPair> pointvectors(pointcloud.points.GetSize());
-	FOREACH(i, pointcloud.points)
-		reinterpret_cast<Point3d&>(pointvectors[i].first) = pointcloud.points[i];
+	std::vector<PointVectorPair> pointvectors;
+	pointvectors.reserve(pointcloud.points.size());
+	for (const PointCloud::Point& point: pointcloud.points)
+		pointvectors.emplace_back(point_t(point.x, point.y, point.z), vector_t());
 	// estimates normals direction;
 	// Note: pca_estimate_normals() requires an iterator over points
 	// as well as property maps to access each point's position and normal.
@@ -1462,7 +1463,8 @@ void MVS::EstimatePointNormals(const ImageArr& images, PointCloud& pointcloud, i
 		PointCloud::Normal& normal = pointcloud.normals[i];
 		const PointCloud::Point& point = pointcloud.points[i];
 		const PointCloud::ViewArr& views= pointcloud.pointViews[i];
-		normal = reinterpret_cast<const Point3d&>(pointvectors[i].second);
+		const vector_t& N = pointvectors[i].second;
+		normal = Normal(N.x(), N.y(), N.z());
 		// correct normal orientation
 		ASSERT(!views.IsEmpty());
 		const Image& imageData = images[views.First()];
@@ -1840,8 +1842,8 @@ bool MVS::ExportDepthDataRaw(const String& fileName, const String& imageFileName
 	ASSERT(viewsMap.empty() || depthMap.size() == viewsMap.size());
 	ASSERT(depthMap.width() <= imageSize.width && depthMap.height() <= imageSize.height);
 
-	FILE* f = fopen(fileName, "wb");
-	if (f == NULL) {
+	std::unique_ptr<FILE, decltype(&fclose)> f(fopen(fileName, "wb"), &fclose);
+	if (!f) {
 		DEBUG("error: opening file '%s' for writing depth-data", fileName.c_str());
 		return false;
 	}
@@ -1862,45 +1864,46 @@ bool MVS::ExportDepthDataRaw(const String& fileName, const String& imageFileName
 		header.type |= HeaderDepthDataRaw::HAS_CONF;
 	if (!viewsMap.empty())
 		header.type |= HeaderDepthDataRaw::HAS_VIEWS;
-	fwrite(&header, sizeof(HeaderDepthDataRaw), 1, f);
+	fwrite(&header, sizeof(HeaderDepthDataRaw), 1, f.get());
 
 	// write image file name
 	STATIC_ASSERT(sizeof(String::value_type) == sizeof(char));
 	const String FileName(MAKE_PATH_REL(Util::getFullPath(Util::getFilePath(fileName)), Util::getFullPath(imageFileName)));
 	const uint16_t nFileNameSize((uint16_t)FileName.length());
-	fwrite(&nFileNameSize, sizeof(uint16_t), 1, f);
-	fwrite(FileName.c_str(), sizeof(char), nFileNameSize, f);
+	fwrite(&nFileNameSize, sizeof(uint16_t), 1, f.get());
+	fwrite(FileName.c_str(), sizeof(char), nFileNameSize, f.get());
 
 	// write neighbor IDs
 	STATIC_ASSERT(sizeof(uint32_t) == sizeof(IIndex));
 	const uint32_t nIDs(IDs.size());
-	fwrite(&nIDs, sizeof(IIndex), 1, f);
-	fwrite(IDs.data(), sizeof(IIndex), nIDs, f);
+	fwrite(&nIDs, sizeof(IIndex), 1, f.get());
+	fwrite(IDs.data(), sizeof(IIndex), nIDs, f.get());
 
 	// write pose
 	STATIC_ASSERT(sizeof(double) == sizeof(REAL));
-	fwrite(K.val, sizeof(REAL), 9, f);
-	fwrite(R.val, sizeof(REAL), 9, f);
-	fwrite(C.ptr(), sizeof(REAL), 3, f);
+	fwrite(K.val, sizeof(REAL), 9, f.get());
+	fwrite(R.val, sizeof(REAL), 9, f.get());
+	fwrite(C.ptr(), sizeof(REAL), 3, f.get());
 
 	// write depth-map
-	fwrite(depthMap.getData(), sizeof(float), depthMap.area(), f);
+	if (fwrite(depthMap.getData(), sizeof(float), depthMap.area(), f.get()) != static_cast<size_t>(depthMap.area())) {
+		DEBUG("error: writing depth-data to file '%s'", fileName.c_str());
+		return false;
+	}
 
 	// write normal-map
 	if ((header.type & HeaderDepthDataRaw::HAS_NORMAL) != 0)
-		fwrite(normalMap.getData(), sizeof(float)*3, normalMap.area(), f);
+		fwrite(normalMap.getData(), sizeof(float)*3, normalMap.area(), f.get());
 
 	// write confidence-map
 	if ((header.type & HeaderDepthDataRaw::HAS_CONF) != 0)
-		fwrite(confMap.getData(), sizeof(float), confMap.area(), f);
+		fwrite(confMap.getData(), sizeof(float), confMap.area(), f.get());
 
 	// write views-map
 	if ((header.type & HeaderDepthDataRaw::HAS_VIEWS) != 0)
-		fwrite(viewsMap.getData(), sizeof(uint8_t)*4, viewsMap.area(), f);
+		fwrite(viewsMap.getData(), sizeof(uint8_t)*4, viewsMap.area(), f.get());
 
-	const bool bRet(ferror(f) == 0);
-	fclose(f);
-	return bRet;
+	return ferror(f.get()) == 0;
 } // ExportDepthDataRaw
 
 bool MVS::ImportDepthDataRaw(const String& fileName, String& imageFileName,
@@ -1909,15 +1912,15 @@ bool MVS::ImportDepthDataRaw(const String& fileName, String& imageFileName,
 	Depth& dMin, Depth& dMax,
 	DepthMap& depthMap, NormalMap& normalMap, ConfidenceMap& confMap, ViewsMap& viewsMap, unsigned flags)
 {
-	FILE* f = fopen(fileName, "rb");
-	if (f == NULL) {
+	std::unique_ptr<FILE, decltype(&fclose)> f(fopen(fileName, "rb"), &fclose);
+	if (!f) {
 		DEBUG("error: opening file '%s' for reading depth-data", fileName.c_str());
 		return false;
 	}
 
 	// read header
 	HeaderDepthDataRaw header;
-	if (fread(&header, sizeof(HeaderDepthDataRaw), 1, f) != 1 ||
+	if (fread(&header, sizeof(HeaderDepthDataRaw), 1, f.get()) != 1 ||
 		header.name != HeaderDepthDataRaw::HeaderDepthDataRawName() ||
 		(header.type & HeaderDepthDataRaw::HAS_DEPTH) == 0 ||
 		header.depthWidth <= 0 || header.depthHeight <= 0 ||
@@ -1930,23 +1933,23 @@ bool MVS::ImportDepthDataRaw(const String& fileName, String& imageFileName,
 	// read image file name
 	STATIC_ASSERT(sizeof(String::value_type) == sizeof(char));
 	uint16_t nFileNameSize;
-	fread(&nFileNameSize, sizeof(uint16_t), 1, f);
+	fread(&nFileNameSize, sizeof(uint16_t), 1, f.get());
 	imageFileName.resize(nFileNameSize);
-	fread(imageFileName.data(), sizeof(char), nFileNameSize, f);
+	fread(imageFileName.data(), sizeof(char), nFileNameSize, f.get());
 
 	// read neighbor IDs
 	STATIC_ASSERT(sizeof(uint32_t) == sizeof(IIndex));
 	uint32_t nIDs;
-	fread(&nIDs, sizeof(IIndex), 1, f);
+	fread(&nIDs, sizeof(IIndex), 1, f.get());
 	ASSERT(nIDs > 0 && nIDs < 256);
 	IDs.resize(nIDs);
-	fread(IDs.data(), sizeof(IIndex), nIDs, f);
+	fread(IDs.data(), sizeof(IIndex), nIDs, f.get());
 
 	// read pose
 	STATIC_ASSERT(sizeof(double) == sizeof(REAL));
-	fread(K.val, sizeof(REAL), 9, f);
-	fread(R.val, sizeof(REAL), 9, f);
-	fread(C.ptr(), sizeof(REAL), 3, f);
+	fread(K.val, sizeof(REAL), 9, f.get());
+	fread(R.val, sizeof(REAL), 9, f.get());
+	fread(C.ptr(), sizeof(REAL), 3, f.get());
 
 	// read depth-map
 	dMin = header.dMin;
@@ -1955,18 +1958,21 @@ bool MVS::ImportDepthDataRaw(const String& fileName, String& imageFileName,
 	imageSize.height = header.imageHeight;
 	if ((flags & HeaderDepthDataRaw::HAS_DEPTH) != 0) {
 		depthMap.create(header.depthHeight, header.depthWidth);
-		fread(depthMap.getData(), sizeof(float), depthMap.area(), f);
+		if (fread(depthMap.getData(), sizeof(float), depthMap.area(), f.get()) != static_cast<size_t>(depthMap.area())) {
+			DEBUG("error: reading depth-data from file '%s'", fileName.c_str());
+			return false;
+		}
 	} else {
-		fseek(f, sizeof(float)*header.depthWidth*header.depthHeight, SEEK_CUR);
+		fseek(f.get(), sizeof(float)*header.depthWidth*header.depthHeight, SEEK_CUR);
 	}
 
 	// read normal-map
 	if ((header.type & HeaderDepthDataRaw::HAS_NORMAL) != 0) {
 		if ((flags & HeaderDepthDataRaw::HAS_NORMAL) != 0) {
 			normalMap.create(header.depthHeight, header.depthWidth);
-			fread(normalMap.getData(), sizeof(float)*3, normalMap.area(), f);
+			fread(normalMap.getData(), sizeof(float)*3, normalMap.area(), f.get());
 		} else {
-			fseek(f, sizeof(float)*3*header.depthWidth*header.depthHeight, SEEK_CUR);
+			fseek(f.get(), sizeof(float)*3*header.depthWidth*header.depthHeight, SEEK_CUR);
 		}
 	}
 
@@ -1974,9 +1980,9 @@ bool MVS::ImportDepthDataRaw(const String& fileName, String& imageFileName,
 	if ((header.type & HeaderDepthDataRaw::HAS_CONF) != 0) {
 		if ((flags & HeaderDepthDataRaw::HAS_CONF) != 0) {
 			confMap.create(header.depthHeight, header.depthWidth);
-			fread(confMap.getData(), sizeof(float), confMap.area(), f);
+			fread(confMap.getData(), sizeof(float), confMap.area(), f.get());
 		} else {
-			fseek(f, sizeof(float)*header.depthWidth*header.depthHeight, SEEK_CUR);
+			fseek(f.get(), sizeof(float)*header.depthWidth*header.depthHeight, SEEK_CUR);
 		}
 	}
 
@@ -1984,13 +1990,11 @@ bool MVS::ImportDepthDataRaw(const String& fileName, String& imageFileName,
 	if ((header.type & HeaderDepthDataRaw::HAS_VIEWS) != 0) {
 		if ((flags & HeaderDepthDataRaw::HAS_VIEWS) != 0) {
 			viewsMap.create(header.depthHeight, header.depthWidth);
-			fread(viewsMap.getData(), sizeof(uint8_t)*4, viewsMap.area(), f);
+			fread(viewsMap.getData(), sizeof(uint8_t)*4, viewsMap.area(), f.get());
 		}
 	}
 
-	const bool bRet(ferror(f) == 0);
-	fclose(f);
-	return bRet;
+	return ferror(f.get()) == 0;
 } // ImportDepthDataRaw
 /*----------------------------------------------------------------*/
 

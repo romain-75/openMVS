@@ -2314,8 +2314,9 @@ void Scene::DenseReconstructionEstimate(void* pData)
 			}
 			#endif
 			// save compute depth-map for this image
-			if (!depthData.depthMap.empty())
-				depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), data.nEstimationGeometricIter < 0 ? "dmap" : "geo.dmap"));
+			if (!depthData.depthMap.empty() &&
+				!depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), data.nEstimationGeometricIter < 0 ? "dmap" : "geo.dmap")))
+				exit(EXIT_FAILURE);
 			depthData.ReleaseImages();
 			depthData.Release();
 			data.progress->operator++();
@@ -2411,7 +2412,8 @@ void Scene::DenseReconstructionFilter(void* pData)
 			}
 			#endif
 			// save filtered depth-map for this image
-			depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), "dmap"));
+			if (!depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), "dmap")))
+				exit(EXIT_FAILURE);
 			depthData.DecRef();
 			data.progress->operator++();
 			break; }
