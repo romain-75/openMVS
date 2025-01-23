@@ -1430,17 +1430,6 @@ inline TPoint3<TTO> cvtPoint3(const TPoint3<TFROM>& p) {
 }
 
 // TPixel operators
-template <typename TYPE, typename TYPEM>
-inline TPixel<TYPE> operator/(const TPixel<TYPE>& pt, TYPEM m) {
-	const TYPEM invm(INVERT(m));
-	return TPixel<TYPE>(invm*pt.r, invm*pt.g, invm*pt.b);
-}
-template <typename TYPE, typename TYPEM>
-inline TPixel<TYPE>& operator/=(TPixel<TYPE>& pt, TYPEM m) {
-	const TYPEM invm(INVERT(m));
-	pt.r *= invm; pt.g *= invm; pt.b *= invm;
-	return pt;
-}
 template <typename TYPE>
 inline TPixel<TYPE> operator/(const TPixel<TYPE>& pt0, const TPixel<TYPE>& pt1) {
 	return TPixel<TYPE>(pt0.r/pt1.r, pt0.g/pt1.g, pt0.b/pt1.b);
@@ -1461,17 +1450,6 @@ inline TPixel<TYPE>& operator*=(TPixel<TYPE>& pt0, const TPixel<TYPE>& pt1) {
 }
 
 // TColor operators
-template <typename TYPE, typename TYPEM>
-inline TColor<TYPE> operator/(const TColor<TYPE>& pt, TYPEM m) {
-	const TYPEM invm(INVERT(m));
-	return TColor<TYPE>(invm*pt.r, invm*pt.g, invm*pt.b, invm*pt.a);
-}
-template <typename TYPE, typename TYPEM>
-inline TColor<TYPE>& operator/=(TColor<TYPE>& pt, TYPEM m) {
-	const TYPEM invm(INVERT(m));
-	pt.r *= invm; pt.g *= invm; pt.b *= invm; pt.a *= invm;
-	return pt;
-}
 template <typename TYPE>
 inline TColor<TYPE> operator/(const TColor<TYPE>& pt0, const TColor<TYPE>& pt1) {
 	return TColor<TYPE>(pt0.r/pt1.r, pt0.g/pt1.g, pt0.b/pt1.b, pt0.a/pt1.a);
