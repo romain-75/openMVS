@@ -1343,7 +1343,7 @@ public:
 	// Access point as Eigen equivalent
 	inline operator EVec () const { return CEVecMap((const TYPE*)this); }
 	// Access point as Eigen::Map equivalent
-	inline operator const CEVecMap () const { return CEVecMap((const TYPE*)this); }
+	inline operator CEVecMap () const { return CEVecMap((const TYPE*)this); }
 	inline operator EVecMap () { return EVecMap((TYPE*)this); }
 	#endif
 
@@ -1438,7 +1438,7 @@ public:
 	// Access point as Eigen equivalent
 	inline operator EVec () const { return CEVecMap((const TYPE*)this); }
 	// Access point as Eigen::Map equivalent
-	inline operator const EVecMap () const { return CEVecMap((const TYPE*)this); }
+	inline operator CEVecMap () const { return CEVecMap((const TYPE*)this); }
 	inline operator EVecMap () { return EVecMap((TYPE*)this); }
 	#endif
 

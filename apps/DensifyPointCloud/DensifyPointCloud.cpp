@@ -65,6 +65,7 @@ bool bCrop2ROI;
 int nEstimateROI;
 int	nTowerMode;
 int nFusionMode;
+unsigned nNormalizeCoordinates;
 float fEstimateScale;
 int thFilterPointCloud;
 int nExportNumViews;
@@ -168,6 +169,7 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 		("crop-to-roi", boost::program_options::value(&OPT::bCrop2ROI)->default_value(true), "crop scene using the region-of-interest")
 		("remove-dmaps", boost::program_options::value(&bRemoveDmaps)->default_value(false), "remove depth-maps after fusion")
 		("tower-mode", boost::program_options::value(&OPT::nTowerMode)->default_value(4), "add a cylinder of points in the center of ROI; scene assume to be Z-up oriented (0 - disabled, 1 - replace, 2 - append, 3 - select neighbors, 4 - select neighbors & append, <0 - force tower mode)")
+		("normalize-coordinates", boost::program_options::value(&OPT::nNormalizeCoordinates)->default_value(0), "normalize scene coordinates and output the inverse transform to file (0 - disabled, 1 - center, 2 - center & scale)")
 		;
 
 	// hidden options, allowed both on command line and
@@ -345,8 +347,10 @@ int main(int argc, LPCTSTR* argv)
 			VERBOSE("error: cannot load ROI file");
 			return EXIT_FAILURE;
 		}
-		scene.Save(MAKE_PATH_SAFE(Util::getFileFullName(OPT::strOutputFileName))+_T(".mvs"), (ARCHIVE_TYPE)OPT::nArchiveType);
-		return EXIT_SUCCESS;
+		if (!OPT::bCrop2ROI) {
+			scene.Save(MAKE_PATH_SAFE(Util::getFileFullName(OPT::strOutputFileName))+_T(".mvs"), (ARCHIVE_TYPE)OPT::nArchiveType);
+			return EXIT_SUCCESS;
+		}
 	}
 	if (!scene.IsBounded())
 		scene.EstimateROI(OPT::nEstimateROI, 1.1f);
@@ -422,8 +426,15 @@ int main(int argc, LPCTSTR* argv)
 		scene.pointcloud.SaveWithScale(baseFileName+_T("_scale.ply"), scene.images, OPT::fEstimateScale);
 		return EXIT_SUCCESS;
 	}
+	if (OPT::nNormalizeCoordinates > 0) {
+		// normalize scene coordinates
+		const Matrix4x4 normalizeTransform = scene.ComputeNormalizationTransform(OPT::nNormalizeCoordinates == 2).inv();
+		scene.Transform(*reinterpret_cast<const Matrix3x4*>(normalizeTransform.val));
+		VERBOSE("Scene coordinates normalized");
+	}
 	PointCloud sparsePointCloud;
 	if ((ARCHIVE_TYPE)OPT::nArchiveType != ARCHIVE_MVS || sceneType == Scene::SCENE_INTERFACE) {
+		// estimate depth-maps and densify the point-cloud
 		#if TD_VERBOSE != TD_VERBOSE_OFF
 		if (VERBOSITY_LEVEL > 1 && !scene.pointcloud.IsEmpty())
 			scene.pointcloud.PrintStatistics(scene.images.data(), &scene.obb);
