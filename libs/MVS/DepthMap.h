@@ -506,6 +506,8 @@ MVS_API void EstimatePointColors(const ImageArr& images, PointCloud& pointcloud)
 MVS_API void EstimatePointNormals(const ImageArr& images, PointCloud& pointcloud, int numNeighbors=16/*K-nearest neighbors*/);
 
 MVS_API bool EstimateNormalMap(const Matrix3x3f& K, const DepthMap&, NormalMap&);
+MVS_API void EstimateConfidenceFromDepth(const DepthData& depthData, ConfidenceMap& confMap, int winHalfSize=1, int n=3);
+MVS_API void EstimateConfidenceFromNormal(const DepthData& depthData, ConfidenceMap& confMap, int winHalfSize=1);
 
 MVS_API bool SaveDepthMap(const String& fileName, const DepthMap& depthMap);
 MVS_API bool LoadDepthMap(const String& fileName, DepthMap& depthMap);

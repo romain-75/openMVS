@@ -47,6 +47,11 @@ using namespace MVS;
 
 // D E F I N E S ///////////////////////////////////////////////////
 
+// uncomment to enable multi-threading based on OpenMP
+#ifdef _USE_OPENMP
+#define DEPTHMAP_USE_OPENMP
+#endif
+
 #define DEFVAR_OPTDENSE_string(name, title, desc, ...)  DEFVAR_string(OPTDENSE, name, title, desc, __VA_ARGS__)
 #define DEFVAR_OPTDENSE_bool(name, title, desc, ...)    DEFVAR_bool(OPTDENSE, name, title, desc, __VA_ARGS__)
 #define DEFVAR_OPTDENSE_int32(name, title, desc, ...)   DEFVAR_int32(OPTDENSE, name, title, desc, __VA_ARGS__)
@@ -1570,6 +1575,69 @@ bool MVS::EstimateNormalMap(const Matrix3x3f& K, const DepthMap& depthMap, Norma
 } // EstimateNormalMap
 /*----------------------------------------------------------------*/
 
+// estimate confidence map from depth-map variation in a window;
+// the estimated confidence is the mean of the depth differences to the 3 closer pixel to the central pixel
+void MVS::EstimateConfidenceFromDepth(const DepthData& depthData, ConfidenceMap& confMap, int winHalfSize, int n) {
+	ASSERT(depthData.dMax > depthData.dMin);
+	const float dDepth = depthData.dMax - depthData.dMin;
+	const DepthMap& depthMap = depthData.depthMap;
+	confMap.create(depthMap.size());
+	confMap.memset(0);
+	#ifdef DEPTHMAP_USE_OPENMP
+	#pragma omp parallel for
+	#endif
+	for (int r = 0; r<depthMap.rows; r++)
+		for (int c = 0; c<depthMap.cols; c++) {
+			if (depthMap(r, c) <= 0)
+				continue;
+			DoubleArr depthDiffValues;
+			for (int k = -winHalfSize; k<=winHalfSize; k++)
+				for (int l = -winHalfSize; l<=winHalfSize; l++)
+					if (r+k >= 0 && r+k < depthMap.rows && c+l >= 0 && c+l < depthMap.cols && depthMap(r+k, c+l) > 0 && !(k == 0 && l == 0))
+						depthDiffValues.push_back(ABS(depthMap(r, c) - depthMap(r+k, c+l)));
+			depthDiffValues.Sort();
+			const int s = MIN(n, (int)depthDiffValues.size());
+			float confidence = 0;
+			for (int k = 0; k < s; k++)
+				confidence += depthDiffValues[k]/depthDiffValues.size();
+			confMap(r, c) = EXP(-2000*confidence/dDepth);
+		}
+} // EstimateConfidenceFromDepth
+/*----------------------------------------------------------------*/
+
+// estimate confidence map from normal variance in a window
+void MVS::EstimateConfidenceFromNormal(const DepthData& depthData, ConfidenceMap& confMap, int winHalfSize) {
+	const NormalMap& normalMap = depthData.normalMap;
+	confMap.create(normalMap.size());
+	confMap.memset(0);
+	#ifdef DEPTHMAP_USE_OPENMP
+	#pragma omp parallel for
+	#endif
+	for (int r = 0; r < normalMap.rows; r++) {
+		for (int c = 0; c< normalMap.cols; c++) {
+			if (depthData.depthMap(r, c) <= 0)
+				continue;
+			Point3f mean(0, 0, 0);
+			int count = 0;
+			for (int k = -winHalfSize; k<=winHalfSize; k++) {
+				for (int l = -winHalfSize; l<=winHalfSize; l++) {
+					if (r+k >= 0 && r+k < normalMap.rows && c+l>=0 && c+l < normalMap.cols && depthData.depthMap(r+k, c+l) > 0) {
+						mean += normalMap(r+k, c+l);
+						count++;
+					}
+				}
+			}
+			mean /= count;
+			float theta = 0;
+			for (int k = -winHalfSize; k<=winHalfSize; k++)
+				for (int l = -winHalfSize; l<=winHalfSize; l++)
+					if (r+k >= 0 && r+k < normalMap.rows && c+l >= 0 && c+l < normalMap.cols && depthData.depthMap(r+k, c+l) > 0)
+						theta += SQUARE(ACOS(mean.dot(normalMap(r+k, c+l))));
+			confMap(r, c) = SQUARE(1 - theta/(count*ACOS(-1)));
+		}
+	}
+} // EstimateConfidenceFromNormal
+/*----------------------------------------------------------------*/
 
 // save the depth map in our .dmap file format
 bool MVS::SaveDepthMap(const String& fileName, const DepthMap& depthMap)
