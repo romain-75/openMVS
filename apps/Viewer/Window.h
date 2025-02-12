@@ -90,6 +90,7 @@ public:
 		COL_NORMAL
 	};
 	COLORSOURCE colorSource;
+	float colorThreshold;
 
 	enum SELECTION {
 		SEL_NA = 0,
@@ -111,7 +112,7 @@ public:
 	ClbkCenterScene clbkCenterScene;
 	typedef DELEGATE<void (const Ray3&, int)> ClbkRayScene;
 	ClbkRayScene clbkRayScene;
-	typedef DELEGATE<void (COLORSOURCE)> ClbkCompilePointCloud;
+	typedef DELEGATE<void (void)> ClbkCompilePointCloud;
 	ClbkCompilePointCloud clbkCompilePointCloud;
 	typedef DELEGATE<void (void)> ClbkCompileMesh;
 	ClbkCompileMesh clbkCompileMesh;

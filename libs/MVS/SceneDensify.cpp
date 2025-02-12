@@ -1736,7 +1736,7 @@ void DepthMapsData::DenseFuseDepthMaps(PointCloud& pointcloud, bool bEstimateCol
 	};
 	// loop over each depth-map
 	IIndex numDMapsFused = 0;
-	for (; numDMapsFused < arrDepthData.size(); ++numDMapsFused) {
+	while (true) {
 		TD_TIMER_STARTD();
 		// find the best depth-map to fuse next as the one with the most neighbors already in cache
 		const auto [idxImage, numImageNeighborsInCache, numImagesInCache] = FetchBestNextDMapIndex(arrDepthData, cacheDMaps, fusedDMaps);
@@ -1744,6 +1744,7 @@ void DepthMapsData::DenseFuseDepthMaps(PointCloud& pointcloud, bool bEstimateCol
 			break; // no more depth-maps to fuse (only invalid depth-maps left)
 		totalNumImageNeighborsInCache += numImageNeighborsInCache;
 		totalNumImagesInCache += numImagesInCache;
+		++numDMapsFused;
 		// fuse depth-map
 		cacheDMaps.UseImage(idxImage);
 		cacheDMaps.SkipMemoryCheckIdxImage(idxImage);

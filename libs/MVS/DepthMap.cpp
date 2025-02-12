@@ -1588,19 +1588,32 @@ void MVS::EstimateConfidenceFromDepth(const DepthData& depthData, ConfidenceMap&
 	#endif
 	for (int r = 0; r<depthMap.rows; r++)
 		for (int c = 0; c<depthMap.cols; c++) {
-			if (depthMap(r, c) <= 0)
+			const Depth depth = depthMap(r, c);
+			if (depth <= 0)
 				continue;
-			DoubleArr depthDiffValues;
+			float& confidence = confMap(r, c);
+			FloatArr depthDiffValues;
+			unsigned numDiffDepths(0), numSimilarDepths(0);
 			for (int k = -winHalfSize; k<=winHalfSize; k++)
 				for (int l = -winHalfSize; l<=winHalfSize; l++)
-					if (r+k >= 0 && r+k < depthMap.rows && c+l >= 0 && c+l < depthMap.cols && depthMap(r+k, c+l) > 0 && !(k == 0 && l == 0))
-						depthDiffValues.push_back(ABS(depthMap(r, c) - depthMap(r+k, c+l)));
+					if (r+k >= 0 && r+k < depthMap.rows && c+l >= 0 && c+l < depthMap.cols && !(k == 0 && l == 0)) {
+						const Depth depthN = depthMap(r+k, c+l);
+						if (depthN > 0 && IsDepthSimilar(depth, depthN, 0.03f))
+							++numSimilarDepths;
+						else
+							++numDiffDepths;
+						depthDiffValues.push_back(ABS(depth-depthN));
+					}
 			depthDiffValues.Sort();
 			const int s = MIN(n, (int)depthDiffValues.size());
-			float confidence = 0;
+			float confidenceDiff = 0;
 			for (int k = 0; k < s; k++)
-				confidence += depthDiffValues[k]/depthDiffValues.size();
-			confMap(r, c) = EXP(-2000*confidence/dDepth);
+				confidenceDiff += depthDiffValues[k]/depthDiffValues.size();
+			confidenceDiff = EXP(-SQUARE(confidenceDiff/(0.002f*dDepth)));
+			const float confidenceSim =
+				MINF(float(numSimilarDepths)/n, 1.f)*0.7f +
+				MAXF(1.f-float(numDiffDepths)/numSimilarDepths, 0.f)*0.3f;
+			confidence = confidenceDiff*0.9f + confidenceSim*0.1f;
 		}
 } // EstimateConfidenceFromDepth
 /*----------------------------------------------------------------*/

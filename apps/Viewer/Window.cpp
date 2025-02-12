@@ -153,8 +153,9 @@ void Window::Reset(SPARSE _sparseType, unsigned _minViews)
 	selectionType = SEL_NA;
 	selectionIdx = NO_IDX;
 	colorSource = COL_IMAGE;
+	colorThreshold = 0.5f;
 	if (clbkCompilePointCloud != NULL)
-		clbkCompilePointCloud(colorSource);
+		clbkCompilePointCloud();
 	if (clbkCompileMesh != NULL)
 		clbkCompileMesh();
 	glfwPostEmptyEvent();
@@ -237,7 +238,7 @@ void Window::Key(int k, int /*scancode*/, int action, int mod)
 				if (minViews > 2) {
 					minViews--;
 					if (clbkCompilePointCloud != NULL)
-						clbkCompilePointCloud(colorSource);
+						clbkCompilePointCloud();
 				}
 			} else {
 				pointSize = MAXF(pointSize-0.5f, 0.5f);
@@ -249,7 +250,7 @@ void Window::Key(int k, int /*scancode*/, int action, int mod)
 			if (mod & GLFW_MOD_SHIFT) {
 				minViews++;
 				if (clbkCompilePointCloud != NULL)
-					clbkCompilePointCloud(colorSource);
+					clbkCompilePointCloud();
 			} else {
 				pointSize += 0.5f;
 			}
@@ -308,7 +309,7 @@ void Window::Key(int k, int /*scancode*/, int action, int mod)
 		case SPR_ALL: sparseType = SPR_POINTS; break;
 		}
 		if (clbkCompilePointCloud != NULL)
-			clbkCompilePointCloud(colorSource);
+			clbkCompilePointCloud();
 		break;
 	case GLFW_KEY_R:
 		if (action == GLFW_RELEASE)
@@ -349,57 +350,69 @@ void Window::Key(int k, int /*scancode*/, int action, int mod)
 		break;
 	case GLFW_KEY_KP_SUBTRACT:
 		if (action == GLFW_RELEASE) {
-			if (mod & GLFW_MOD_CONTROL)
+			if (mod & GLFW_MOD_CONTROL) {
 				camera.SetFOV(camera.fov-5.f);
-			else if (mod & GLFW_MOD_SHIFT)
+			} else if (mod & GLFW_MOD_SHIFT) {
 				camera.scaleF *= 0.9f;
-			else
+			} else if (mod & GLFW_MOD_ALT) {
+				if (colorSource != COL_IMAGE && colorThreshold > 0.f) {
+					colorThreshold = MAXF(colorThreshold-0.1f, 0.f);
+					clbkCompilePointCloud();
+				}
+			} else {
 				cameraBlend = MAXF(cameraBlend-0.1f, 0.f);
+			}
 		}
 		break;
 	case GLFW_KEY_KP_ADD:
 		if (action == GLFW_RELEASE) {
-			if (mod & GLFW_MOD_CONTROL)
+			if (mod & GLFW_MOD_CONTROL) {
 				camera.SetFOV(camera.fov+5.f);
-			else if (mod & GLFW_MOD_SHIFT)
+			} else if (mod & GLFW_MOD_SHIFT) {
 				camera.scaleF *= 1.1111f;
-			else
+			} else if (mod & GLFW_MOD_ALT) {
+				if (colorSource != COL_IMAGE) {
+					colorThreshold += 0.1f;
+					clbkCompilePointCloud();
+				}
+			} else {
 				cameraBlend = MINF(cameraBlend+0.1f, 1.f);
+			}
 		}
 		break;
 	case GLFW_KEY_F1:
 		if (action == GLFW_RELEASE) {
 			colorSource = COL_IMAGE;
 			if (clbkCompilePointCloud != NULL)
-				clbkCompilePointCloud(colorSource);
+				clbkCompilePointCloud();
 		}
 		break;
 	case GLFW_KEY_F2:
 		if (action == GLFW_RELEASE) {
 			colorSource = COL_CONFIDENCE;
 			if (clbkCompilePointCloud != NULL)
-				clbkCompilePointCloud(colorSource);
+				clbkCompilePointCloud();
 		}
 		break;
 	case GLFW_KEY_F3:
 		if (action == GLFW_RELEASE) {
 			colorSource = COL_DEPTH;
 			if (clbkCompilePointCloud != NULL)
-				clbkCompilePointCloud(colorSource);
+				clbkCompilePointCloud();
 		}
 		break;
 	case GLFW_KEY_F4:
 		if (action == GLFW_RELEASE) {
 			colorSource = COL_COMPOSITE;
 			if (clbkCompilePointCloud != NULL)
-				clbkCompilePointCloud(colorSource);
+				clbkCompilePointCloud();
 		}
 		break;
 	case GLFW_KEY_F5:
 		if (action == GLFW_RELEASE) {
 			colorSource = COL_NORMAL;
 			if (clbkCompilePointCloud != NULL)
-				clbkCompilePointCloud(colorSource);
+				clbkCompilePointCloud();
 		}
 		break;
 	}
