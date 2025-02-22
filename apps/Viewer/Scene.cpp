@@ -476,7 +476,7 @@ void Scene::CompilePointCloud()
 			++numPoints;
 		}
 		glEnd();
-		DEBUG("Point-cloud %.2f%% with %s color source and %.2f confidence threshold compiled",
+		DEBUG("Point-cloud %.2f%%%% with %s color source and %.2f confidence threshold compiled",
 			100.f*(float)numPoints/scene.pointcloud.GetSize(),
 			window.colorSource == Window::COLORSOURCE::COL_DEPTH ? "depth" :
 			window.colorSource == Window::COLORSOURCE::COL_CONFIDENCE ? "confidence" :
