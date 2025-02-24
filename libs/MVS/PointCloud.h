@@ -180,9 +180,9 @@ typedef MVS_API TImage<Depth> DepthMap;
 typedef MVS_API TImage<Normal> NormalMap;
 typedef MVS_API TImage<float> ConfidenceMap;
 typedef MVS_API SEACAVE::cList<Depth,Depth,0> DepthArr;
-typedef MVS_API SEACAVE::cList<DepthMap,const DepthMap&,2> DepthMapArr;
-typedef MVS_API SEACAVE::cList<NormalMap,const NormalMap&,2> NormalMapArr;
-typedef MVS_API SEACAVE::cList<ConfidenceMap,const ConfidenceMap&,2> ConfidenceMapArr;
+typedef MVS_API CLISTDEF2IDX(DepthMap,IIndex) DepthMapArr;
+typedef MVS_API CLISTDEF2IDX(NormalMap,IIndex) NormalMapArr;
+typedef MVS_API CLISTDEF2IDX(ConfidenceMap,IIndex) ConfidenceMapArr;
 /*----------------------------------------------------------------*/
 
 } // namespace MVS

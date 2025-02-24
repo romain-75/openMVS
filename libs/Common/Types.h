@@ -980,10 +980,6 @@ FORCEINLINE INTTYPE Round2Int(double x) {
 // INTERPOLATION
 
 // Linear interpolation
-inline float lerp(float u, float v, float x)
-{
-	return u + (v - u) * x;
-}
 template<typename Type>
 inline Type lerp(const Type& u, const Type& v, float x)
 {
@@ -991,13 +987,6 @@ inline Type lerp(const Type& u, const Type& v, float x)
 }
 
 // Cubic interpolation
-inline float cerp(float u0, float u1, float u2, float u3, float x)
-{
-	const float p((u3 - u2) - (u0 - u1));
-	const float q((u0 - u1) - p);
-	const float r(u2 - u0);
-	return x * (x * (x * p + q) + r) + u1;
-}
 template<typename Type>
 inline Type cerp(const Type& u0, const Type& u1, const Type& u2, const Type& u3, float x)
 {

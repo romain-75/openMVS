@@ -87,7 +87,6 @@ MDEFVAR_OPTDENSE_uint32(nMinPixelsFuse, "Min Pixels Fuse", "minimum number of de
 MDEFVAR_OPTDENSE_uint32(nMaxPointsFuse, "Max Points Fuse", "maximum number of pixels to fuse into a single point", "1000")
 MDEFVAR_OPTDENSE_uint32(nMaxFuseDepth, "Max Fuse Depth", "maximum depth in fusion graph traversal", "100")
 MDEFVAR_OPTDENSE_uint32(nPointInsideROI, "Point Inside ROI", "consider a point shared only if inside ROI when estimating the neighbor views (0 - ignore ROI, 1 - weight more ROI points, 2 - consider only ROI points)", "1")
-MDEFVAR_OPTDENSE_bool(bFilterAdjust, "Filter Adjust", "adjust depth estimates during filtering", "1")
 MDEFVAR_OPTDENSE_bool(bAddCorners, "Add Corners", "add support points at image corners with nearest neighbor disparities", "0")
 MDEFVAR_OPTDENSE_bool(bInitSparse, "Init Sparse", "init depth-map only with the sparse points (no interpolation)", "1")
 MDEFVAR_OPTDENSE_bool(bRemoveDmaps, "Remove Dmaps", "remove depth-maps after fusion", "0")
@@ -107,7 +106,7 @@ MDEFVAR_OPTDENSE_int32(nOptimizerMaxIters, "Optimizer Max Iters", "MRF optimizer
 MDEFVAR_OPTDENSE_uint32(nSpeckleSize, "Speckle Size", "maximal size of a speckle (small speckles get removed)", "100")
 MDEFVAR_OPTDENSE_uint32(nIpolGapSize, "Interpolate Gap Size", "interpolate small gaps (left<->right, top<->bottom)", "7")
 MDEFVAR_OPTDENSE_int32(nIgnoreMaskLabel, "Ignore Mask Label", "label id used during ignore mask filter (<0 - disabled)", "-1")
-DEFVAR_OPTDENSE_uint32(nOptimize, "Optimize", "should we filter the extracted depth-maps?", "7") // see DepthFlags
+DEFVAR_OPTDENSE_uint32(nOptimize, "Optimize", "should we filter the extracted depth-maps?", "0") // see DepthFlags
 DEFVAR_OPTDENSE_uint32(nFuseFilter, "Fuse Filter", "how to fuse the depth-maps into one dense point-cloud?", "2", "0", "1") // see FuseMode
 MDEFVAR_OPTDENSE_uint32(nEstimateColors, "Estimate Colors", "should we estimate the colors for the dense point-cloud?", "2", "0", "1")
 MDEFVAR_OPTDENSE_uint32(nEstimateNormals, "Estimate Normals", "should we estimate the normals for the dense point-cloud?", "2", "0", "1")
@@ -1695,6 +1694,31 @@ bool MVS::LoadConfidenceMap(const String& fileName, ConfidenceMap& confMap)
 /*----------------------------------------------------------------*/
 
 
+// filter depth-map and normal-map using a confidence theshold
+unsigned MVS::FilterDepthMap(DepthMap& depthMap, NormalMap& normalMap, const ConfidenceMap& confMap, float thConfidence)
+{
+	ASSERT(!depthMap.empty());
+	ASSERT(normalMap.size() == depthMap.size());
+	ASSERT(confMap.size() == depthMap.size());
+	unsigned numFiltered = 0;
+	#ifdef DEPTHMAP_USE_OPENMP
+	#pragma omp parallel for reduction(+:numFiltered)
+	#endif
+	for (int r = 0; r < depthMap.rows; r++) {
+		for (int c = 0; c < depthMap.cols; c++) {
+			Depth& depth = depthMap(r, c);
+			if (depth <= 0)
+				continue;
+			if (confMap(r, c) < thConfidence) {
+				depth = 0;
+				normalMap(r, c) = Normal::ZERO;
+				++numFiltered;
+			}
+		}
+	}
+	return numFiltered;
+} // FilterDepthMap
+/*----------------------------------------------------------------*/
 
 // export depth map as an image (dark - far depth, light - close depth)
 Image8U3 MVS::DepthMap2Image(const DepthMap& depthMap, Depth minDepth, Depth maxDepth)
