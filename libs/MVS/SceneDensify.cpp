@@ -976,8 +976,9 @@ bool DepthMapsData::AdjustConfidenceFast(DepthData& depthDataRef, const IIndexAr
 			// if confidence-map is available, the final confidence is a combination of the photometric and similarity confidence
 			const float confPhoto = MINF(confPhotoRef, bestConf);
 			const float confSimilarity = EXP(SQUARE(minDiff) * sigmaDepthDiff);
-			const bool bKeep(confPhoto > negBestConf1 + negBestConf2);
-			newConfMap(r,c) = bKeep ? 0.3f*confPhoto + 0.7f*confSimilarity : 0.1f*confPhoto/(negBestConf1+negBestConf2);
+			const float negBestConfs(negBestConf1 + negBestConf2);
+			const bool bKeep(confPhoto > negBestConfs);
+			newConfMap(r,c) = bKeep ? 0.3f*confPhoto + 0.7f*confSimilarity : (negBestConfs > 0.f ? 0.1f*confPhoto/negBestConfs : 0.f);
 			#if TD_VERBOSE != TD_VERBOSE_OFF
 			if (confSimilarity <= 0.5f)
 				++nDiscarded;

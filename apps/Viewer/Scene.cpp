@@ -892,10 +892,12 @@ void Scene::CastRay(const Ray3& ray, int action)
 					const MVS::PointCloud::ViewArr& views = scene.pointcloud.pointViews[intRay.pick.idx];
 					ASSERT(!views.empty());
 					String strViews(String::FormatString("\n\tviews: %u", views.size()));
-					for (MVS::PointCloud::View idxImage: views) {
+					FOREACH(v, views) {
+						const MVS::PointCloud::View idxImage = views[v];
 						const MVS::Image& imageData = scene.images[idxImage];
 						const Point2 x(imageData.camera.TransformPointW2I(Cast<REAL>(window.selectionPoints[0])));
-						strViews += String::FormatString("\n\t\t%s (%.2f %.2f)", Util::getFileNameExt(imageData.name).c_str(), x.x, x.y);
+						const float conf = scene.pointcloud.pointWeights.empty() ? 0.f : scene.pointcloud.pointWeights[intRay.pick.idx][v];
+						strViews += String::FormatString("\n\t\t%s (%.2f %.2f pixel, %.2f conf)", Util::getFileNameExt(imageData.name).c_str(), x.x, x.y, conf);
 					}
 					return strViews;
 				}().c_str()
