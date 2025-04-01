@@ -14,6 +14,9 @@ IF(POLICY CMP0104)
 	CMAKE_POLICY(SET CMP0104 NEW)
 ENDIF()
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 SET(VCG_ROOT "/3d/vcglib")
 
 # List configuration options
@@ -97,8 +100,8 @@ if(OpenMVS_USE_OPENMP)
 		message ("Force OPENMP")
 		SET(_USE_OPENMP TRUE)
 		ADD_DEFINITIONS(-Xpreprocessor -fopenmp)
-		INCLUDE_DIRECTORIES(/opt/homebrew/Cellar/libomp/18.1.6/include)
-		LIST(APPEND OpenMVS_EXTRA_LIBS -L/opt/homebrew/Cellar/libomp/18.1.6/lib -lomp)
+		INCLUDE_DIRECTORIES(/opt/homebrew/Cellar/libomp/19.1.7/include)
+		LIST(APPEND OpenMVS_EXTRA_LIBS -L/opt/homebrew/Cellar/libomp/19.1.7/lib -lomp)
 		MESSAGE("-- Can't find OpenMP. Continuing without it.")
 	endif()
 endif()
