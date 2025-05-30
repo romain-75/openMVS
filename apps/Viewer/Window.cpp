@@ -229,8 +229,15 @@ void Window::Key(int k, int /*scancode*/, int action, int mod)
 {
 	switch (k) {
 	case GLFW_KEY_ESCAPE:
-		if (action == GLFW_RELEASE)
-			glfwSetWindowShouldClose(window, 1);
+		if (action == GLFW_RELEASE) {
+			if (camera.IsCameraViewMode()) {
+				// disable camera view mode
+				camera.prevCamID = camera.currentCamID;
+			} else {
+				// close window
+				glfwSetWindowShouldClose(window, 1);
+			}
+		}
 		break;
 	case GLFW_KEY_DOWN:
 		if (action == GLFW_RELEASE) {

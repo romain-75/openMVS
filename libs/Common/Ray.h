@@ -112,8 +112,8 @@ public:
 
 	inline TYPE Classify(const POINT&) const;
 	inline POINT ProjectPoint(const POINT&) const;
-	bool DistanceSq(const POINT&, TYPE&) const;
-	bool Distance(const POINT&, TYPE&) const;
+	bool DistanceSq(const POINT&, TYPE&, TYPE&) const;
+	bool Distance(const POINT&, TYPE&, TYPE&) const;
 	TYPE DistanceSq(const POINT&) const;
 	TYPE Distance(const POINT&) const;
 	POINT GetPoint(TYPE) const;

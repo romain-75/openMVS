@@ -189,8 +189,8 @@ bool TRay<TYPE,DIMS>::Intersects(const TRIANGLE& tri, TYPE fL, TYPE *t) const
 template <typename TYPE, int DIMS>
 bool TRay<TYPE,DIMS>::Intersects(const SPHERE& sphere) const
 {
-	TYPE dSq;
-	if (!DistanceSq(sphere.center, dSq))
+	TYPE t, dSq;
+	if (!DistanceSq(sphere.center, t, dSq))
 		return false;
 	return dSq <= SQUARE(sphere.radius);
 }
@@ -198,12 +198,9 @@ bool TRay<TYPE,DIMS>::Intersects(const SPHERE& sphere) const
 template <typename TYPE, int DIMS>
 bool TRay<TYPE,DIMS>::Intersects(const SPHERE& sphere, TYPE& t) const
 {
-	const VECTOR a(sphere.center - m_pOrig);
-	t = a.dot(m_vDir);
-	// point behind the ray origin
-	if (t < TYPE(0))
+	TYPE dSq;
+	if (!DistanceSq(sphere.center, t, dSq))
 		return false;
-	const TYPE dSq((a - m_vDir*t).squaredNorm());
 	return dSq <= SQUARE(sphere.radius);
 } // Intersects(Sphere)
 /*----------------------------------------------------------------*/
@@ -772,25 +769,25 @@ inline typename TRay<TYPE,DIMS>::POINT TRay<TYPE,DIMS>::ProjectPoint(const POINT
 // Computes the distance between the ray and a point.
 // Returns false if the point is projecting behind the ray origin.
 template <typename TYPE, int DIMS>
-bool TRay<TYPE,DIMS>::DistanceSq(const POINT& pt, TYPE& d) const
+bool TRay<TYPE,DIMS>::DistanceSq(const POINT& pt, TYPE& t, TYPE& d) const
 {
 	const VECTOR a(pt - m_pOrig);
-	const TYPE LenACos(a.dot(m_vDir));
+	t = a.dot(m_vDir);
 	// point behind the ray origin
-	if (LenACos < TYPE(0))
+	if (t < TYPE(0))
 		return false;
-	d = (a - m_vDir*LenACos).squaredNorm();
+	d = (a - m_vDir*t).squaredNorm();
 	return true;
 } // DistanceSq(POINT)
 template <typename TYPE, int DIMS>
-bool TRay<TYPE,DIMS>::Distance(const POINT& pt, TYPE& d) const
+bool TRay<TYPE,DIMS>::Distance(const POINT& pt, TYPE& t, TYPE& d) const
 {
 	const VECTOR a(pt - m_pOrig);
-	const TYPE LenACos(a.dot(m_vDir));
+	t = a.dot(m_vDir);
 	// point behind the ray origin
-	if (LenACos < TYPE(0))
+	if (t < TYPE(0))
 		return false;
-	d = (a - m_vDir*LenACos).norm();
+	d = (a - m_vDir*t).norm();
 	return true;
 } // Distance(POINT)
 // Same as above, but returns the distance even if the point projection is behind the origin.
