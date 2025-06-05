@@ -656,8 +656,9 @@ void Scene::Draw()
 			}
 			glDisable(GL_TEXTURE_2D);
 			// draw camera frame
-			glLineWidth(2.f);
-			glColor3f(bSelectedImage ? 0.f : 1.f, 1.f, 0.f);
+			const bool bSelectedCamera(window.selectionType == Window::SEL_CAMERA && window.selectionIdx == idx);
+			glLineWidth(bSelectedCamera ? 3.f : 2.f);
+			glColor3f(bSelectedImage || bSelectedCamera ? 0.f : 1.f, 1.f, 0.f);
 			glBegin(GL_LINES);
 			glVertex3d(0,0,0); glVertex3dv(ic1.ptr());
 			glVertex3d(0,0,0); glVertex3dv(ic2.ptr());
@@ -844,76 +845,129 @@ void Scene::CastRay(const Ray3& ray, int action)
 	const double timeClick(0.2);
 	const double timeDblClick(0.3);
 	const double now(glfwGetTime());
+
 	switch (action) {
 	case GLFW_PRESS: {
 		// remember when the click action started
 		window.selectionTimeClick = now;
-	break; }
+		break; }
 	case GLFW_RELEASE: {
-	if (now-window.selectionTimeClick > timeClick) {
-		// this is a long click, ignore it
-		break;
-	} else
-	if (window.selectionType != Window::SEL_NA &&
-		now-window.selectionTime < timeDblClick) {
-		// this is a double click, center scene at the selected point
-		window.CenterCamera(window.selectionPoints[3]);
-		window.selectionTime = now;
-	} else
-	if (!octMesh.IsEmpty()) {
-		// find ray intersection with the mesh
-		const MVS::IntersectRayMesh intRay(octMesh, ray, scene.mesh);
-		if (intRay.pick.IsValid()) {
-			const MVS::Mesh::Face& face = scene.mesh.faces[(MVS::Mesh::FIndex)intRay.pick.idx];
-			window.selectionPoints[0] = scene.mesh.vertices[face[0]];
-			window.selectionPoints[1] = scene.mesh.vertices[face[1]];
-			window.selectionPoints[2] = scene.mesh.vertices[face[2]];
-			window.selectionPoints[3] = ray.GetPoint(intRay.pick.dist).cast<float>();
-			window.selectionType = Window::SEL_TRIANGLE;
-			window.selectionTime = now;
-			window.selectionIdx = intRay.pick.idx;
-			DEBUG("Face selected:\n\tindex: %u\n\tvertex 1: %u (%g %g %g)\n\tvertex 2: %u (%g %g %g)\n\tvertex 3: %u (%g %g %g)",
-				intRay.pick.idx,
-				face[0], window.selectionPoints[0].x, window.selectionPoints[0].y, window.selectionPoints[0].z,
-				face[1], window.selectionPoints[1].x, window.selectionPoints[1].y, window.selectionPoints[1].z,
-				face[2], window.selectionPoints[2].x, window.selectionPoints[2].y, window.selectionPoints[2].z
-			);
-		} else {
-			window.selectionType = Window::SEL_NA;
+		if (now-window.selectionTimeClick > timeClick) {
+			// this is a long click, ignore it
+			break;
 		}
-	} else
-	if (!octPoints.IsEmpty()) {
-		// find ray intersection with the points
-		const MVS::IntersectRayPoints intRay(octPoints, ray, scene.pointcloud, window.minViews);
-		if (intRay.pick.IsValid()) {
-			window.selectionPoints[0] = window.selectionPoints[3] = scene.pointcloud.points[intRay.pick.idx];
-			window.selectionType = Window::SEL_POINT;
+		if (window.selectionType != Window::SEL_NA && now-window.selectionTime < timeDblClick) {
+			// this is a double click, center scene at the selected element
+			if (window.selectionType == Window::SEL_CAMERA)
+				window.camera.currentCamID = window.selectionIdx;
+			window.CenterCamera(window.selectionPoints[3]);
 			window.selectionTime = now;
-			window.selectionIdx = intRay.pick.idx;
-			DEBUG("Point selected:\n\tindex: %u (%g %g %g)%s",
-				intRay.pick.idx,
-				window.selectionPoints[0].x, window.selectionPoints[0].y, window.selectionPoints[0].z,
-				[&]() {
-					if (scene.pointcloud.pointViews.empty())
-						return String();
-					const MVS::PointCloud::ViewArr& views = scene.pointcloud.pointViews[intRay.pick.idx];
-					ASSERT(!views.empty());
-					String strViews(String::FormatString("\n\tviews: %u", views.size()));
-					FOREACH(v, views) {
-						const MVS::PointCloud::View idxImage = views[v];
-						const MVS::Image& imageData = scene.images[idxImage];
-						const Point2 x(imageData.camera.TransformPointW2I(Cast<REAL>(window.selectionPoints[0])));
-						const float conf = scene.pointcloud.pointWeights.empty() ? 0.f : scene.pointcloud.pointWeights[intRay.pick.idx][v];
-						strViews += String::FormatString("\n\t\t%s (%.2f %.2f pixel, %.2f conf)", Util::getFileNameExt(imageData.name).c_str(), x.x, x.y, conf);
-					}
-					return strViews;
-				}().c_str()
-			);
-		} else {
-			window.selectionType = Window::SEL_NA;
+			break;
 		}
-	}
-	break; }
+		window.selectionType = Window::SEL_NA;
+		REAL minDist = REAL(FLT_MAX);
+		IDX newSelectionIdx = NO_IDX;
+		Point3f newSelectionPoints[4];
+		if (!octMesh.IsEmpty()) {
+			// find ray intersection with the mesh
+			const MVS::IntersectRayMesh intRay(octMesh, ray, scene.mesh);
+			if (intRay.pick.IsValid()) {
+				window.selectionType = Window::SEL_TRIANGLE;
+				minDist = intRay.pick.dist;
+				newSelectionIdx = intRay.pick.idx;
+				const MVS::Mesh::Face& face = scene.mesh.faces[(MVS::Mesh::FIndex)newSelectionIdx];
+				newSelectionPoints[0] = scene.mesh.vertices[face[0]];
+				newSelectionPoints[1] = scene.mesh.vertices[face[1]];
+				newSelectionPoints[2] = scene.mesh.vertices[face[2]];
+				newSelectionPoints[3] = ray.GetPoint(minDist).cast<float>();
+			}
+		}
+		if (!octPoints.IsEmpty()) {
+			// find ray intersection with the points
+			const MVS::IntersectRayPoints intRay(octPoints, ray, scene.pointcloud, window.minViews);
+			if (intRay.pick.IsValid() && intRay.pick.dist < minDist) {
+				window.selectionType = Window::SEL_POINT;
+				minDist = intRay.pick.dist;
+				newSelectionIdx = intRay.pick.idx;
+				newSelectionPoints[0] = newSelectionPoints[3] = scene.pointcloud.points[newSelectionIdx];
+			}
+		}
+		// check for camera intersection
+		const TCone<REAL, 3> cone(ray, D2R(REAL(0.5)));
+		const TConeIntersect<REAL, 3> coneIntersect(cone);
+		FOREACH(idx, images) {
+			const Image& image = images[idx];
+			const MVS::Image& imageData = scene.images[image.idx];
+			ASSERT(imageData.IsValid());
+			REAL dist;
+			if (coneIntersect.Classify(imageData.camera.C, dist) == VISIBLE && dist < minDist) {
+				window.selectionType = Window::SEL_CAMERA;
+				minDist = dist;
+				newSelectionIdx = idx;
+				newSelectionPoints[0] = newSelectionPoints[3] = imageData.camera.C;
+			}
+		}
+		// check if we have a new selection
+		if (window.selectionType != Window::SEL_NA) {
+			window.selectionIdx = newSelectionIdx;
+			window.selectionPoints[0] = newSelectionPoints[0];
+			window.selectionPoints[1] = newSelectionPoints[1];
+			window.selectionPoints[2] = newSelectionPoints[2];
+			window.selectionPoints[3] = newSelectionPoints[3];
+			window.selectionTime = now;
+			switch (window.selectionType) {
+			case Window::SEL_TRIANGLE: {
+				DEBUG("Face selected:\n\tindex: %u\n\tvertex 1: %u (%g, %g, %g)\n\tvertex 2: %u (%g, %g, %g)\n\tvertex 3: %u (%g, %g, %g)",
+					newSelectionIdx,
+					scene.mesh.faces[newSelectionIdx][0], newSelectionPoints[0].x, newSelectionPoints[0].y, newSelectionPoints[0].z,
+					scene.mesh.faces[newSelectionIdx][1], newSelectionPoints[1].x, newSelectionPoints[1].y, newSelectionPoints[1].z,
+					scene.mesh.faces[newSelectionIdx][2], newSelectionPoints[2].x, newSelectionPoints[2].y, newSelectionPoints[2].z
+				);
+				break; }
+			case Window::SEL_POINT: {
+				DEBUG("Point selected:\n\tindex: %u (%g, %g, %g)%s",
+					newSelectionIdx,
+					newSelectionPoints[0].x, newSelectionPoints[0].y, newSelectionPoints[0].z,
+					[&]() {
+						if (scene.pointcloud.pointViews.empty())
+							return String();
+						const MVS::PointCloud::ViewArr& views = scene.pointcloud.pointViews[newSelectionIdx];
+						ASSERT(!views.empty());
+						String strViews(String::FormatString("\n\tviews: %u", views.size()));
+						FOREACH(v, views) {
+							const MVS::PointCloud::View idxImage = views[v];
+							const MVS::Image& imageData = scene.images[idxImage];
+							const Point2 x(imageData.camera.TransformPointW2I(Cast<REAL>(window.selectionPoints[0])));
+							const float conf = scene.pointcloud.pointWeights.empty() ? 0.f : scene.pointcloud.pointWeights[newSelectionIdx][v];
+							strViews += String::FormatString("\n\t\t%s (%.2f %.2f pixel, %.2f conf)", Util::getFileNameExt(imageData.name).c_str(), x.x, x.y, conf);
+						}
+						return strViews;
+					}().c_str()
+				);
+				break; }
+			case Window::SEL_CAMERA: {
+				window.camera.prevCamID = window.camera.currentCamID = NO_ID;
+				const Image& image = images[newSelectionIdx];
+				const MVS::Image& imageData = scene.images[image.idx];
+				const MVS::Camera& camera = imageData.camera;
+				Point3 eulerAngles;
+				camera.R.GetRotationAnglesZYX(eulerAngles.x, eulerAngles.y, eulerAngles.z);
+				DEBUG("Camera selected:\n\tindex: %u (ID: %u)\n\tname: %s (mask %s)\n\timage size: %ux%u"
+					"\n\tintrinsics: fx %.2f, fy %.2f, cx %.2f, cy %.2f"
+					"\n\tposition: %g, %g, %g\n\trotation (deg): %.2f, %.2f, %.2f"
+					"\n\taverage depth: %.2g\n\tneighbors: %u",
+					image.idx, imageData.ID, Util::getFileNameExt(imageData.name).c_str(),
+					imageData.maskName.empty() ? "none" : Util::getFileNameExt(imageData.maskName).c_str(),
+					imageData.width, imageData.height,
+					camera.K(0, 0), camera.K(1, 1), camera.K(0, 2), camera.K(1, 2),
+					camera.C.x, camera.C.y, camera.C.z,
+					R2D(eulerAngles.x), R2D(eulerAngles.y), R2D(eulerAngles.z),
+					imageData.avgDepth, imageData.neighbors.size()
+				);
+				break; }
+			}
+		}
+		break; }
 	}
 }
 /*----------------------------------------------------------------*/

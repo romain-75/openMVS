@@ -95,7 +95,8 @@ public:
 	enum SELECTION {
 		SEL_NA = 0,
 		SEL_POINT,
-		SEL_TRIANGLE
+		SEL_TRIANGLE,
+		SEL_CAMERA
 	};
 	SELECTION selectionType;
 	Point3f selectionPoints[4];
