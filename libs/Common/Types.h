@@ -59,31 +59,26 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <optional>
 #include <vector>
 #include <list>
 #include <queue>
 #include <deque>
 #include <iterator>
+#include <chrono>
 #include <cmath>
 #include <ctime>
 #include <random>
+#include <thread>
 #ifdef _USE_OPENMP
 #include <omp.h>
 #endif
 
 // Function delegate functionality
-#ifdef _SUPPORT_CPP11
-#include "FastDelegateCPP11.h"
+#include "FastDelegate.h"
 #define DELEGATE fastdelegate::delegate
 #define DELEGATEBIND(DLGT, FNC) DLGT::from< FNC >()
 #define DELEGATEBINDCLASS(DLGT, FNC, OBJ) DLGT::from(*OBJ, FNC)
-#else
-#include "FastDelegate.h"
-#include "FastDelegateBind.h"
-#define DELEGATE fastdelegate::FastDelegate
-#define DELEGATEBIND(DLGT, FNC) fastdelegate::bind(FNC)
-#define DELEGATEBINDCLASS(DLGT, FNC, OBJ) fastdelegate::bind(FNC, OBJ)
-#endif
 
 // include usual boost libraries
 #ifdef _USE_BOOST
@@ -383,6 +378,25 @@ typedef TAliasCast<double,int32_t> CastD2I;
 #endif
 
 
+// functions simplifying the task of printing messages
+namespace SEACAVE {
+// print the given message composed of any number of arguments to the given stream
+template<typename... Args>
+std::ostringstream& PrintMessageToStream(std::ostringstream& oss, Args&&... args) {
+	// fold expression to insert all arguments into the stream
+	(oss << ... << args);
+	return oss;
+}
+// print the given message composed of any number of arguments to a string
+template<typename... Args>
+std::string PrintMessageToString(Args&&... args) {
+	std::ostringstream oss;
+	(oss << ... << args);
+	return oss.str();
+}
+} // namespace SEACAVE
+
+
 // I N C L U D E S /////////////////////////////////////////////////
 
 #include "Strings.h"
@@ -433,7 +447,6 @@ typedef class GENERAL_API cList<double, double, 0>      DoubleArr;
 #include "EventQueue.h"
 #include "SML.h"
 #include "ConfigTable.h"
-#include "HTMLDoc.h"
 
 
 // D E F I N E S ///////////////////////////////////////////////////
@@ -687,13 +700,13 @@ constexpr T factorial(T n) {
 }
 template<typename T>
 constexpr T combinations(const T& n, const T& k) {
-	ASSERT(n >= k);
+	SIMPLE_ASSERT(n >= k);
 	#if 1
 	T num = n;
 	const T den = factorial(k);
 	for (T i=n-k+1; i<n; ++i)
 		num *= i;
-	ASSERT(num%den == 0);
+	SIMPLE_ASSERT(num%den == 0);
 	return num/den;
 	#else
 	return factorial(n) / (factorial(k)*factorial(n-k));
@@ -967,10 +980,6 @@ FORCEINLINE INTTYPE Round2Int(double x) {
 // INTERPOLATION
 
 // Linear interpolation
-inline float lerp(float u, float v, float x)
-{
-	return u + (v - u) * x;
-}
 template<typename Type>
 inline Type lerp(const Type& u, const Type& v, float x)
 {
@@ -978,13 +987,6 @@ inline Type lerp(const Type& u, const Type& v, float x)
 }
 
 // Cubic interpolation
-inline float cerp(float u0, float u1, float u2, float u3, float x)
-{
-	const float p((u3 - u2) - (u0 - u1));
-	const float q((u0 - u1) - p);
-	const float r(u2 - u0);
-	return x * (x * (x * p + q) + r) + u1;
-}
 template<typename Type>
 inline Type cerp(const Type& u0, const Type& u1, const Type& u2, const Type& u3, float x)
 {
@@ -1304,9 +1306,15 @@ public:
 	inline const TYPE* ptr() const { return &x; }
 	inline TYPE* ptr() { return &x; }
 
+	// iterator base access to enable range-based for loops
+	inline const TYPE* begin() const { return &x; }
+	inline const TYPE* end() const { return &x+3; }
+
 	// 1D element access
-	inline const TYPE& operator [](size_t i) const { ASSERT(i>=0 && i<2); return ptr()[i]; }
-	inline TYPE& operator [](size_t i) { ASSERT(i>=0 && i<2); return ptr()[i]; }
+	inline const TYPE& operator ()(int i) const { ASSERT(i>=0 && i<2); return ptr()[i]; }
+	inline TYPE& operator ()(int i) { ASSERT(i>=0 && i<2); return ptr()[i]; }
+	inline const TYPE& operator [](int i) const { ASSERT(i>=0 && i<2); return ptr()[i]; }
+	inline TYPE& operator [](int i) { ASSERT(i>=0 && i<2); return ptr()[i]; }
 
 	// Access point as Size equivalent
 	inline operator const Size& () const { return *((const Size*)this); }
@@ -1324,7 +1332,11 @@ public:
 	// Access point as Eigen equivalent
 	inline operator EVec () const { return CEVecMap((const TYPE*)this); }
 	// Access point as Eigen::Map equivalent
+<<<<<<< HEAD
 	inline operator const CEVecMap () const { return CEVecMap((const TYPE*)this); }
+=======
+	inline operator CEVecMap () const { return CEVecMap((const TYPE*)this); }
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	inline operator EVecMap () { return EVecMap((TYPE*)this); }
 	#endif
 
@@ -1397,9 +1409,15 @@ public:
 	inline const TYPE* ptr() const { return &x; }
 	inline TYPE* ptr() { return &x; }
 
+	// iterator base access to enable range-based for loops
+	inline const TYPE* begin() const { return &x; }
+	inline const TYPE* end() const { return &x+3; }
+
 	// 1D element access
-	inline const TYPE& operator [](BYTE i) const { ASSERT(i<3); return ptr()[i]; }
-	inline TYPE& operator [](BYTE i) { ASSERT(i<3); return ptr()[i]; }
+	inline const TYPE& operator ()(int i) const { ASSERT(i>=0 && i<3); return ptr()[i]; }
+	inline TYPE& operator ()(int i) { ASSERT(i>=0 && i<3); return ptr()[i]; }
+	inline const TYPE& operator [](int i) const { ASSERT(i>=0 && i<3); return ptr()[i]; }
+	inline TYPE& operator [](int i) { ASSERT(i>=0 && i<3); return ptr()[i]; }
 
 	// Access point as vector equivalent
 	inline operator const Vec& () const { return *reinterpret_cast<const Vec*>(this); }
@@ -1413,7 +1431,11 @@ public:
 	// Access point as Eigen equivalent
 	inline operator EVec () const { return CEVecMap((const TYPE*)this); }
 	// Access point as Eigen::Map equivalent
+<<<<<<< HEAD
 	inline operator const EVecMap () const { return CEVecMap((const TYPE*)this); }
+=======
+	inline operator CEVecMap () const { return CEVecMap((const TYPE*)this); }
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	inline operator EVecMap () { return EVecMap((TYPE*)this); }
 	#endif
 
@@ -1613,7 +1635,9 @@ public:
 	/// What is the elem stride of the matrix?
 	inline size_t elem_stride() const { ASSERT(dims == 2 && step[1] == sizeof(TYPE)); return step[1]; }
 	/// Compute the area of the 2D matrix
-	inline int area() const { ASSERT(dims == 2); return cols*rows; }
+	inline int area() const { ASSERT(dims == 0 || dims == 2); return cols*rows; }
+	/// Compute the memory size of this matrix (in bytes)
+	inline size_t memory_size() const { return cv::Mat::total() * cv::Mat::elemSize(); }
 
 	/// Is this coordinate inside the 2D matrix?
 	template <typename T>
@@ -1830,43 +1854,38 @@ typedef CLISTDEF2(DVector) DVectorArr;
 #define _COLORMODE _COLORMODE_BGR
 #endif
 
-template<typename TYPE> class ColorType
-{
-public:
+template<typename TYPE> struct ColorType {
 	typedef TYPE value_type;
 	typedef value_type alt_type;
+	typedef value_type work_type;
 	static const value_type ONE;
 	static const alt_type ALTONE;
 };
-template<> class ColorType<uint8_t>
-{
-public:
+template<> struct ColorType<uint8_t> {
 	typedef uint8_t value_type;
 	typedef float alt_type;
+	typedef float work_type;
 	static const value_type ONE;
 	static const alt_type ALTONE;
 };
-template<> class ColorType<uint32_t>
-{
-public:
+template<> struct ColorType<uint32_t> {
 	typedef uint32_t value_type;
 	typedef float alt_type;
+	typedef float work_type;
 	static const value_type ONE;
 	static const alt_type ALTONE;
 };
-template<> class ColorType<float>
-{
-public:
+template<> struct ColorType<float> {
 	typedef float value_type;
 	typedef uint8_t alt_type;
+	typedef float work_type;
 	static const value_type ONE;
 	static const alt_type ALTONE;
 };
-template<> class ColorType<double>
-{
-public:
+template<> struct ColorType<double> {
 	typedef double value_type;
 	typedef uint8_t alt_type;
+	typedef float work_type;
 	static const value_type ONE;
 	static const alt_type ALTONE;
 };
@@ -1895,6 +1914,7 @@ struct TPixel {
 		TYPE c[3];
 	};
 	typedef typename ColorType<TYPE>::alt_type ALT;
+	typedef typename ColorType<TYPE>::work_type WT;
 	typedef TYPE Type;
 	typedef TPoint3<TYPE> Pnt;
 	static const TPixel BLACK;
@@ -1976,9 +1996,9 @@ struct TPixel {
 	template<typename T> inline TPixel& operator-=(T v) { return (*this = operator-(v)); }
 	inline uint32_t toDWORD() const { return RGBA((uint8_t)r, (uint8_t)g, (uint8_t)b, (uint8_t)0); }
 	// tools
-	template <typename VT>
-	static TPixel colorRamp(VT v, VT vmin, VT vmax);
-	static TPixel gray2color(ALT v);
+	static TPixel colorRamp(WT v, WT vmin, WT vmax);
+	static TPixel gray2color(WT v);
+	static TPixel random();
 	#ifdef _USE_BOOST
 	// serialize
 	template <class Archive>

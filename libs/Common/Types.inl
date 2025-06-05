@@ -13,17 +13,81 @@
 
 namespace std {
 
-//namespace tr1 {
-// Specializations for unordered containers
-template <> struct hash<SEACAVE::ImageRef>
-{
-	typedef SEACAVE::ImageRef argument_type;
-	typedef size_t result_type;
-	result_type operator()(const argument_type& v) const {
-		return std::hash<uint64_t>()((const uint64_t&)v);
+// combine hash values (as in boost)
+namespace {
+template <class T>
+inline void hash_combine(std::size_t& seed, T const& v) {
+	seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+template <class Tuple, size_t Index = std::tuple_size<Tuple>::value - 1>
+struct HashValueImpl {
+	static void apply(size_t& seed, Tuple const& tuple) {
+		HashValueImpl<Tuple, Index - 1>::apply(seed, tuple);
+		hash_combine(seed, std::get<Index>(tuple));
 	}
 };
-//} // namespace tr1
+template <class Tuple>
+struct HashValueImpl<Tuple, 0> {
+	static void apply(size_t& seed, Tuple const& tuple) { hash_combine(seed, std::get<0>(tuple)); }
+};
+} // namespace
+
+// hash specialization for pairs/tuples
+template <typename T, typename U>
+struct hash<std::pair<T, U>> {
+	std::size_t operator()(const std::pair<T, U>& x) const {
+		size_t seed = std::hash<T>()(x.first);
+		hash_combine<U>(seed, x.second);
+		return seed;
+	}
+};
+template <typename... T>
+struct hash<std::tuple<T...>> {
+	size_t operator()(const std::tuple<T...>& t) const {
+		size_t seed = 0;
+		HashValueImpl<std::tuple<T...>>::apply(seed, t);
+		return seed;
+	}
+};
+
+// hash specializations for OpenCV points
+template <typename T>
+struct hash<cv::Point_<T>> {
+	size_t operator()(const cv::Point_<T>& v) const {
+		size_t seed = std::hash<T>()(v.x);
+		std::hash_combine(seed, v.y);
+		return seed;
+	}
+};
+template <typename T>
+struct hash<cv::Point3_<T>> {
+	size_t operator()(const cv::Point3_<T>& v) const {
+		size_t seed = std::hash<T>()(v.x);
+		std::hash_combine(seed, v.y);
+		std::hash_combine(seed, v.z);
+		return seed;
+	}
+};
+template <>
+struct hash<SEACAVE::PairIdx> {
+	size_t operator()(const SEACAVE::PairIdx& v) const {
+		return std::hash<SEACAVE::PairIdx::PairIndex>()(v.idx);
+	}
+};
+
+// adds the given key-value pair in the map, overwriting the current value if the key exists
+template <typename Key, typename T>
+void MapPut(std::map<Key, T>* map, const Key& key, const T& value) {
+	auto result = map->emplace(key, value);
+	if (!result.second)
+		result.first->second = value;
+}
+template <typename Key, typename T>
+void MapPut(std::unordered_map<Key, T>* map, const Key& key, const T& value) {
+	auto result = map->emplace(key, value);
+	if (!result.second)
+		result.first->second = value;
+}
 
 } // namespace std
 
@@ -1366,17 +1430,6 @@ inline TPoint3<TTO> cvtPoint3(const TPoint3<TFROM>& p) {
 }
 
 // TPixel operators
-template <typename TYPE, typename TYPEM>
-inline TPixel<TYPE> operator/(const TPixel<TYPE>& pt, TYPEM m) {
-	const TYPEM invm(INVERT(m));
-	return TPixel<TYPE>(invm*pt.r, invm*pt.g, invm*pt.b);
-}
-template <typename TYPE, typename TYPEM>
-inline TPixel<TYPE>& operator/=(TPixel<TYPE>& pt, TYPEM m) {
-	const TYPEM invm(INVERT(m));
-	pt.r *= invm; pt.g *= invm; pt.b *= invm;
-	return pt;
-}
 template <typename TYPE>
 inline TPixel<TYPE> operator/(const TPixel<TYPE>& pt0, const TPixel<TYPE>& pt1) {
 	return TPixel<TYPE>(pt0.r/pt1.r, pt0.g/pt1.g, pt0.b/pt1.b);
@@ -1397,17 +1450,6 @@ inline TPixel<TYPE>& operator*=(TPixel<TYPE>& pt0, const TPixel<TYPE>& pt1) {
 }
 
 // TColor operators
-template <typename TYPE, typename TYPEM>
-inline TColor<TYPE> operator/(const TColor<TYPE>& pt, TYPEM m) {
-	const TYPEM invm(INVERT(m));
-	return TColor<TYPE>(invm*pt.r, invm*pt.g, invm*pt.b, invm*pt.a);
-}
-template <typename TYPE, typename TYPEM>
-inline TColor<TYPE>& operator/=(TColor<TYPE>& pt, TYPEM m) {
-	const TYPEM invm(INVERT(m));
-	pt.r *= invm; pt.g *= invm; pt.b *= invm; pt.a *= invm;
-	return pt;
-}
 template <typename TYPE>
 inline TColor<TYPE> operator/(const TColor<TYPE>& pt0, const TColor<TYPE>& pt1) {
 	return TColor<TYPE>(pt0.r/pt1.r, pt0.g/pt1.g, pt0.b/pt1.b, pt0.a/pt1.a);
@@ -2191,59 +2233,63 @@ void TDVector<TYPE>::getKroneckerProduct(const TDVector<TYPE>& arg, TDVector<TYP
 
 // Color ramp code from "Colour Ramping for Data Visualisation"
 // (see http://paulbourke.net/texture_colour/colourspace)
-template <typename TYPE/*PixelType*/>
-template <typename VT/*ValueType*/>
-TPixel<TYPE> TPixel<TYPE>::colorRamp(VT v, VT vmin, VT vmax)
+template <typename TYPE>
+TPixel<TYPE> TPixel<TYPE>::colorRamp(WT v, WT vmin, WT vmax)
 {
 	if (v < vmin)
 		v = vmin;
 	if (v > vmax)
 		v = vmax;
-	const TYPE dv((TYPE)(vmax - vmin));
-	TPixel<TYPE> c(1,1,1); // white
-	if (v < vmin + (VT)(TYPE(0.25) * dv)) {
-		c.r = TYPE(0);
-		c.g = TYPE(4) * (v - vmin) / dv;
-	} else if (v < vmin + (VT)(TYPE(0.5) * dv)) {
-		c.r = TYPE(0);
-		c.b = TYPE(1) + TYPE(4) * (vmin + TYPE(0.25) * dv - v) / dv;
-	} else if (v < vmin + (VT)(TYPE(0.75) * dv)) {
-		c.r = TYPE(4) * (v - vmin - TYPE(0.5) * dv) / dv;
-		c.b = TYPE(0);
+	const WT dv(vmax - vmin);
+	TPixel<WT> c(TPixel<WT>::WHITE);
+	if (v < vmin + WT(0.25) * dv) {
+		c.r = WT(0);
+		c.g = WT(4) * (v - vmin) / dv;
+	} else if (v < vmin + WT(0.5) * dv) {
+		c.r = WT(0);
+		c.b = WT(1) + WT(4) * (vmin + WT(0.25) * dv - v) / dv;
+	} else if (v < vmin + WT(0.75) * dv) {
+		c.r = WT(4) * (v - vmin - WT(0.5) * dv) / dv;
+		c.b = WT(0);
 	} else {
-		c.g = TYPE(1) + TYPE(4) * (vmin + TYPE(0.75) * dv - v) / dv;
-		c.b = TYPE(0);
+		c.g = WT(1) + WT(4) * (vmin + WT(0.75) * dv - v) / dv;
+		c.b = WT(0);
 	}
-	return c;
+	return c.template cast<TYPE>();
 }
 
-// Gray values are expected in the range [0, 1] and converted to RGB values.
+// Gray values are expected in the range [0, 1] and converted to RGB values
 template <typename TYPE>
-TPixel<TYPE> TPixel<TYPE>::gray2color(ALT gray)
+TPixel<TYPE> TPixel<TYPE>::gray2color(WT gray)
 {
-	ASSERT(ALT(0) <= gray && gray <= ALT(1));
-	// Jet colormap inspired by Matlab.
-	auto const Interpolate = [](ALT val, ALT y0, ALT x0, ALT y1, ALT x1) -> ALT {
+	ASSERT(WT(0) <= gray && gray <= WT(1));
+	// Jet colormap inspired by Matlab
+	const auto Interpolate = [](WT val, WT y0, WT x0, WT y1, WT x1) -> WT {
 		return (val - x0) * (y1 - y0) / (x1 - x0) + y0;
 	};
-	auto const  Base = [&Interpolate](ALT val) -> ALT {
-		if (val <= ALT(0.125)) {
-			return ALT(0);
-		} else if (val <= ALT(0.375)) {
-			return Interpolate(ALT(2) * val - ALT(1), ALT(0), ALT(-0.75), ALT(1), ALT(-0.25));
-		} else if (val <= ALT(0.625)) {
-			return ALT(1);
-		} else if (val <= ALT(0.87)) {
-			return Interpolate(ALT(2) * val - ALT(1), ALT(1), ALT(0.25), ALT(0), ALT(0.75));
-		} else {
-			return ALT(0);
-		}
+	const auto Base = [&Interpolate](WT val) -> WT {
+		if (val <= WT(0.125))
+			return WT(0);
+		if (val <= WT(0.375))
+			return Interpolate(WT(2) * val - WT(1), WT(0), WT(-0.75), WT(1), WT(-0.25));
+		if (val <= WT(0.625))
+			return WT(1);
+		if (val <= WT(0.87))
+			return Interpolate(WT(2) * val - WT(1), WT(1), WT(0.25), WT(0), WT(0.75));
+		return WT(0);
 	};
 	return TPixel<TYPE>().set(
-		Base(gray + ALT(0.25)),
+		Base(gray + WT(0.25)),
 		Base(gray),
-		Base(gray - ALT(0.25))
+		Base(gray - WT(0.25))
 	);
+}
+
+// Generate random color
+template <typename TYPE>
+TPixel<TYPE> TPixel<TYPE>::random()
+{
+	return gray2color(RANDOM<WT>());
 }
 /*----------------------------------------------------------------*/
 

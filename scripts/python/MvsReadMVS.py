@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+#!/usr/bin/python3
+# -*- encoding: utf-8 -*-
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 '''
 Example usage of MvsUtils.py for reading MVS interface archive content.
 

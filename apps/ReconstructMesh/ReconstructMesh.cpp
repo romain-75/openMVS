@@ -118,7 +118,7 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 			), "verbosity level")
 		#endif
 		#ifdef _USE_CUDA
-		("cuda-device", boost::program_options::value(&CUDA::desiredDeviceID)->default_value(-1), "CUDA device number to be used to reconstruct the mesh (-2 - CPU processing, -1 - best GPU, >=0 - device index)")
+		("cuda-device", boost::program_options::value(&SEACAVE::CUDA::desiredDeviceID)->default_value(-1), "CUDA device number to be used to reconstruct the mesh (-2 - CPU processing, -1 - best GPU, >=0 - device index)")
 		#endif
 		;
 
@@ -128,7 +128,7 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 		("input-file,i", boost::program_options::value<std::string>(&OPT::strInputFileName), "input filename containing camera poses and image list")
 		("pointcloud-file,p", boost::program_options::value<std::string>(&OPT::strPointCloudFileName), "dense point-cloud with views file name to reconstruct (overwrite existing point-cloud)")
 		("output-file,o", boost::program_options::value<std::string>(&OPT::strOutputFileName), "output filename for storing the mesh")
-		("min-point-distance,d", boost::program_options::value(&OPT::fDistInsert)->default_value(2.5f), "minimum distance in pixels between the projection of two 3D points to consider them different while triangulating (0 - disabled)")
+		("min-point-distance,d", boost::program_options::value(&OPT::fDistInsert)->default_value(1.5f), "minimum distance in pixels between the projection of two 3D points to consider them different while triangulating (0 - disabled)")
 		("integrate-only-roi", boost::program_options::value(&OPT::bUseOnlyROI)->default_value(false), "use only the points inside the ROI")
 		("constant-weight", boost::program_options::value(&OPT::bUseConstantWeight)->default_value(true), "considers all view weights 1 instead of the available weight")
 		("free-space-support,f", boost::program_options::value(&OPT::bUseFreeSpaceSupport)->default_value(false), "exploits the free-space support in order to reconstruct weakly-represented surfaces")
@@ -315,7 +315,7 @@ bool Export3DProjections(Scene& scene, const String& inputFileName) {
 	const Mesh::Octree octree(scene.mesh.vertices, [](Mesh::Octree::IDX_TYPE size, Mesh::Octree::Type /*radius*/) {
 		return size > 256;
 	});
-	scene.mesh.ListIncidenteFaces();
+	scene.mesh.ListIncidentFaces();
 
 	// save 3D coord in the output file
 	const Image& imgToExport = scene.images[imgID];
@@ -370,10 +370,10 @@ int main(int argc, LPCTSTR* argv)
 	}
 
 	if (!OPT::strImportROIFileName.empty()) {
-		std::ifstream fs(MAKE_PATH_SAFE(OPT::strImportROIFileName));
-		if (!fs)
+		if (!scene.LoadROI(MAKE_PATH_SAFE(OPT::strImportROIFileName))) {
+			VERBOSE("error: cannot load ROI file");
 			return EXIT_FAILURE;
-		fs >> scene.obb;
+		}
 		if (OPT::bCrop2ROI && !scene.mesh.IsEmpty() && !scene.IsValid()) {
 			TD_TIMER_START();
 			const size_t numVertices = scene.mesh.vertices.size();
@@ -474,8 +474,8 @@ int main(int argc, LPCTSTR* argv)
 				numVertices-scene.mesh.vertices.size(), numFaces-scene.mesh.faces.size(), TD_TIMER_GET_FMT().c_str());
 		}
 		const float fDecimate(OPT::nTargetFaceNum ? static_cast<float>(OPT::nTargetFaceNum) / scene.mesh.faces.size() : OPT::fDecimateMesh);
-		scene.mesh.Clean(fDecimate, OPT::fRemoveSpurious, OPT::bRemoveSpikes, OPT::nCloseHoles, OPT::nSmoothMesh, OPT::fEdgeLength, false);
-		scene.mesh.Clean(1.f, 0.f, OPT::bRemoveSpikes, OPT::nCloseHoles, 0u, 0.f, false); // extra cleaning trying to close more holes
+		scene.mesh.Clean(1.f, OPT::fRemoveSpurious, OPT::bRemoveSpikes, OPT::nCloseHoles, OPT::nSmoothMesh, OPT::fEdgeLength, false);
+		scene.mesh.Clean(fDecimate, 0.f, OPT::bRemoveSpikes, OPT::nCloseHoles, 0u, 0.f, false); // extra cleaning trying to close more holes
 		scene.mesh.Clean(1.f, 0.f, false, 0u, 0u, 0.f, true); // extra cleaning to remove non-manifold problems created by closing holes
 		scene.obb = initialOBB;
 

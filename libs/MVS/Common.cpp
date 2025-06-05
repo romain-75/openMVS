@@ -42,10 +42,15 @@ void MVS::Initialize(LPCTSTR appname, unsigned nMaxThreads, int nProcessPriority
 	// initialize thread options
 	Process::setCurrentProcessPriority((Process::Priority)nProcessPriority);
 	#ifdef _USE_OPENMP
+<<<<<<< HEAD
 	if (nMaxThreads != 0){
     	std::cout << "omp_set_num_threads(" << nMaxThreads << ");" << std::endl;
 		omp_set_num_threads(nMaxThreads);
 	}
+=======
+	if (nMaxThreads != 0)
+		omp_set_num_threads(nMaxThreads);
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	#endif
 
 	#ifdef _USE_BREAKPAD

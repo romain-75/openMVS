@@ -64,7 +64,8 @@ public:
 	Camera camera; // view's pose
 	uint32_t width, height; // image size
 	Image8U3 image; // image color pixels
-	ViewScoreArr neighbors; // scored neighbor images
+	Image8U mask; // image 8-bit segmentation mask, max 256 labels
+	ViewScoreArr neighbors; // scored neighbor images (image indices ordered by score)
 	float scale; // image scale relative to the original size
 	float avgDepth; // average depth of the points seen by this camera
 
@@ -73,7 +74,8 @@ public:
 
 	inline bool IsValid() const { return poseID != NO_ID; }
 	inline bool HasResolution() const { return width > 0 && height > 0; }
-	inline Image8U::Size GetSize() const { return Image8U::Size(width, height); }
+	inline cv::Size GetSize() const { return cv::Size(width, height); }
+	inline String GetMaskFileName() const { return maskName.empty() ? Util::getFileFullName(name)+".mask.png" : maskName; }
 
 	// read image data from the file
 	static IMAGEPTR OpenImage(const String& fileName);
@@ -89,7 +91,7 @@ public:
 	Image GetImage(const PlatformArr& platforms, double scale, bool bUseImage=true) const;
 	Camera GetCamera(const PlatformArr& platforms, const Image8U::Size& resolution) const;
 	void UpdateCamera(const PlatformArr& platforms);
-	REAL ComputeFOV(int dir) const;
+	REAL ComputeFOV(int dir=0) const;
 
 	static bool StereoRectifyImages(const Image& image1, const Image& image2, const Point3fArr& points1, const Point3fArr& points2, Image8U3& rectifiedImage1, Image8U3& rectifiedImage2, Image8U& mask1, Image8U& mask2, Matrix3x3& H, Matrix4x4& Q);
 	static void ScaleStereoRectification(Matrix3x3& H, Matrix4x4& Q, REAL scale);

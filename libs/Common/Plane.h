@@ -28,9 +28,13 @@ class TPlane
 	STATIC_ASSERT(DIMS > 0 && DIMS <= 3);
 
 public:
+<<<<<<< HEAD
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     
+=======
+	typedef Eigen::Matrix<TYPE,DIMS+1,DIMS+1,Eigen::RowMajor> MATRIX;
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	typedef Eigen::Matrix<TYPE,DIMS,1> VECTOR;
 	typedef Eigen::Matrix<TYPE,DIMS,1> POINT;
 	typedef SEACAVE::TAABB<TYPE,DIMS> AABB;
@@ -65,6 +69,9 @@ public:
 
 	inline void Negate();
 	inline TPlane Negated() const;
+
+	inline TPlane Transformed(const MATRIX&) const;
+	inline TPlane& Transform(const MATRIX&);
 
 	inline TYPE Distance(const TPlane&) const;
 	inline TYPE Distance(const POINT&) const;

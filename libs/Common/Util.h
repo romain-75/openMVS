@@ -183,10 +183,10 @@ public:
 		std::ostringstream os;
 		os.precision(3);
 		os << sTitle << "\n";
-		const size_t n(Freq.size());
-		for (size_t i = 0; i < n; ++i)
+		os << "<" << Start << "\t|\t" << Underflow << "\n";
+		for (size_t i = 0, n = Freq.size(); i < n; ++i)
 			os << static_cast<float>(End-Start)/n*static_cast<float>(i) << "\t|\t" << Freq[i] << "\n";
-		os << End << "\n";
+		os << ">=" << End << "\t|\t" << Overflow << "\n";
 		return os.str();
 	}
 
@@ -598,34 +598,54 @@ public:
 		uint32_t rez = (uint32_t)(sTime / ((int64_t)24*3600*1000));
 		if (rez) {
 			++nrNumbers;
+<<<<<<< HEAD
 			len += _sntprintf(buf+len, 128, "%ud", rez);
+=======
+			len += _sntprintf(buf, 128, "%ud", rez);
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		}
 		if (nAproximate > 3 && nrNumbers > 0)
 			return buf;
 		rez = (uint32_t)((sTime%((int64_t)24*3600*1000)) / (3600*1000));
 		if (rez) {
 			++nrNumbers;
+<<<<<<< HEAD
 			len += _sntprintf(buf+len, 128, "%uh", rez);
+=======
+			len += _sntprintf(buf+len, 128-len, "%uh", rez);
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		}
 		if (nAproximate > 2 && nrNumbers > 0)
 			return buf;
 		rez = (uint32_t)((sTime%((int64_t)3600*1000)) / (60*1000));
 		if (rez) {
 			++nrNumbers;
+<<<<<<< HEAD
 			len += _sntprintf(buf+len, 128, "%um", rez);
+=======
+			len += _sntprintf(buf+len, 128-len, "%um", rez);
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		}
 		if (nAproximate > 1 && nrNumbers > 0)
 			return buf;
 		rez = (uint32_t)((sTime%((int64_t)60*1000)) / (1*1000));
 		if (rez) {
 			++nrNumbers;
+<<<<<<< HEAD
 			len += _sntprintf(buf+len, 128, "%us", rez);
+=======
+			len += _sntprintf(buf+len, 128-len, "%us", rez);
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		}
 		if (nAproximate > 0 && nrNumbers > 0)
 			return buf;
 		rez = (uint32_t)(sTime%((int64_t)1*1000));
 		if (rez || !nrNumbers)
+<<<<<<< HEAD
 			len += _sntprintf(buf+len, 128, "%ums", rez);
+=======
+			len += _sntprintf(buf+len, 128-len, "%ums", rez);
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 
 		return String(buf, len);
 	}
@@ -699,54 +719,6 @@ public:
 	}
 
 
-	/**
-	 * IPRT - CRC64.
-	 *
-	 * The method to compute the CRC64 is referred to as CRC-64-ISO:
-	 *     http://en.wikipedia.org/wiki/Cyclic_redundancy_check
-	 * The generator polynomial is x^64 + x^4 + x^3 + x + 1.
-	 *     Reverse polynom: 0xd800000000000000ULL
-	 *     
-	 * As in: http://www.virtualbox.org/svn/vbox/trunk/src/VBox/Runtime/common/checksum/crc64.cpp
-	 */
-
-	/**
-	 * Calculate CRC64 for a memory block.
-	 *
-	 * @returns CRC64 for the memory block.
-	 * @param   pv      Pointer to the memory block.
-	 * @param   cb      Size of the memory block in bytes.
-	 */
-	static uint64_t CRC64(const void *pv, size_t cb);
-
-	/**
-	 * Start a multiblock CRC64 calculation.
-	 *
-	 * @returns Start CRC64.
-	 */
-	static uint64_t CRC64Start() {
-		return 0ULL;
-	}
-	/**
-	 * Processes a multiblock of a CRC64 calculation.
-	 *
-	 * @returns Intermediate CRC64 value.
-	 * @param   uCRC64  Current CRC64 intermediate value.
-	 * @param   pv      The data block to process.
-	 * @param   cb      The size of the data block in bytes.
-	 */
-	static uint64_t CRC64Process(uint64_t uCRC64, const void *pv, size_t cb);
-	/**
-	 * Complete a multiblock CRC64 calculation.
-	 *
-	 * @returns CRC64 value.
-	 * @param   uCRC64  Current CRC64 intermediate value.
-	 */
-	static uint64_t CRC64Finish(uint64_t uCRC64) {
-		return uCRC64;
-	}
-
-
 	static void		Init();
 
 	static String	GetCPUInfo();
@@ -758,6 +730,16 @@ public:
 
 	static void		LogBuild();
 	static void		LogMemoryInfo();
+
+	struct MemoryInfo {
+		size_t totalPhysical;
+		size_t freePhysical;
+		size_t totalVirtual;
+		size_t freeVirtual;
+		MemoryInfo(size_t tP = 0, size_t fP = 0, size_t tV = 0, size_t fV = 0)
+			: totalPhysical(tP), freePhysical(fP), totalVirtual(tV), freeVirtual(fV) {}
+	};
+	static MemoryInfo GetMemoryInfo();
 
 	static LPSTR* CommandLineToArgvA(LPCSTR CmdLine, size_t& _argc);
 	static String CommandLineToString(size_t argc, LPCTSTR* argv) {

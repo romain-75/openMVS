@@ -137,21 +137,27 @@ public:
 	Image8U3Arr texturesDiffuse; // textures containing the diffuse color (optional)
 
 	#ifdef _USE_CUDA
-	static CUDA::KernelRT kernelComputeFaceNormal;
+	static SEACAVE::CUDA::KernelRT kernelComputeFaceNormal;
 	#endif
 
 public:
 	#ifdef _USE_CUDA
 	inline Mesh() {
-		InitKernels(CUDA::desiredDeviceID);
+		InitKernels(SEACAVE::CUDA::desiredDeviceID);
 	}
 	#endif
 
 	void Release();
 	void ReleaseExtra();
+	void ReleaseComputable();
 	void EmptyExtra();
+<<<<<<< HEAD
 	void Swap(Mesh&);
 	void Join(const Mesh&);
+=======
+	Mesh& Swap(Mesh&);
+	Mesh& Join(const Mesh&);
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	bool IsEmpty() const { return vertices.empty(); }
 	bool IsWatertight();
 	bool HasTexture() const { return HasTextureCoordinates() && !texturesDiffuse.empty(); }
@@ -162,9 +168,9 @@ public:
 	Box GetAABB(const Box& bound) const;
 	Vertex GetCenter() const;
 
-	void ListIncidenteVertices();
-	void ListIncidenteFaces();
-	void ListIncidenteFaceFaces();
+	void ListIncidentVertices();
+	void ListIncidentFaces();
+	void ListIncidentFaceFaces();
 	void ListBoundaryVertices();
 	void ComputeNormalFaces();
 	void ComputeNormalVertices();
@@ -179,7 +185,11 @@ public:
 	void GetAdjVertices(VIndex, VertexIdxArr&) const;
 	void GetAdjVertexFaces(VIndex, VIndex, FaceIdxArr&) const;
 
+<<<<<<< HEAD
 	unsigned FixNonManifold(float magDisplacementDuplicateVertices = 0.01f, VertexIdxArr* duplicatedVertices = NULL);
+=======
+	unsigned FixNonManifold(float magDisplacementDuplicateVertices=0.01f, VertexIdxArr* duplicatedVertices=NULL);
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	void Clean(float fDecimate=0.7f, float fSpurious=10.f, bool bRemoveSpikes=true, unsigned nCloseHoles=30, unsigned nSmoothMesh=2, float fEdgeLength=0, bool bLastClean=true);
 
 	void EnsureEdgeSize(float minEdge=-0.5f, float maxEdge=-4.f, float collapseRatio=0.2, float degenerate_angle_deg=150, int mode=1, int max_iters=50);
@@ -189,9 +199,12 @@ public:
 	void Decimate(VertexIdxArr& verticesRemove);
 	void CloseHole(VertexIdxArr& vertsLoop);
 	void CloseHoleQuality(VertexIdxArr& vertsLoop);
+	FIndex RemoveDegenerateFaces(Type thArea=1e-10f);
+	FIndex RemoveDegenerateFaces(unsigned maxIterations, Type thArea=1e-10f);
 	void RemoveFacesOutside(const OBB3f&);
 	void RemoveFaces(FaceIdxArr& facesRemove, bool bUpdateLists=false);
 	void RemoveVertices(VertexIdxArr& vertexRemove, bool bUpdateLists=false);
+	VIndex RemoveDuplicatedVertices(VertexIdxArr* duplicatedVertices=NULL);
 	VIndex RemoveUnreferencedVertices(bool bUpdateLists=false);
 	std::vector<Mesh> SplitMeshPerTextureBlob() const;
 	void ConvertTexturePerVertex(Mesh&) const;
@@ -283,12 +296,15 @@ protected:
 // used to render a 3D triangle
 template <typename DERIVED>
 struct TRasterMeshBase {
+	typedef DERIVED Rasterizer;
+
+	struct Triangle {
+		Point3 ptc[3];
+		Point2f pti[3];
+	};
+	
 	const Camera& camera;
-
 	DepthMap& depthMap;
-
-	Point3 ptc[3];
-	Point2f pti[3];
 
 	TRasterMeshBase(const Camera& _camera, DepthMap& _depthMap)
 		: camera(_camera), depthMap(_depthMap) {}
@@ -300,27 +316,39 @@ struct TRasterMeshBase {
 		return depthMap.size();
 	}
 
-	inline bool ProjectVertex(const Point3f& pt, int v) {
-		return (ptc[v] = camera.TransformPointW2C(Cast<REAL>(pt))).z > 0 &&
-			depthMap.isInsideWithBorder<float,3>(pti[v] = camera.TransformPointC2I(ptc[v]));
+	inline bool ProjectVertex(const Point3f& pt, int v, Triangle& t) {
+		return (t.ptc[v] = camera.TransformPointW2C(Cast<REAL>(pt))).z > 0 &&
+			depthMap.isInsideWithBorder<float,3>(t.pti[v] = camera.TransformPointC2I(t.ptc[v]));
 	}
 
-	inline Point3f PerspectiveCorrectBarycentricCoordinates(const Point3f& bary) {
-		return SEACAVE::PerspectiveCorrectBarycentricCoordinates(bary, (float)ptc[0].z, (float)ptc[1].z, (float)ptc[2].z);
+	inline Point3f PerspectiveCorrectBarycentricCoordinates(const Triangle& t, const Point3f& bary) {
+		return SEACAVE::PerspectiveCorrectBarycentricCoordinates(bary, (float)t.ptc[0].z, (float)t.ptc[1].z, (float)t.ptc[2].z);
 	}
-	inline float ComputeDepth(const Point3f& pbary) {
-		return pbary[0]*(float)ptc[0].z + pbary[1]*(float)ptc[1].z + pbary[2]*(float)ptc[2].z;
+	inline float ComputeDepth(const Triangle& t, const Point3f& pbary) {
+		return pbary[0]*(float)t.ptc[0].z + pbary[1]*(float)t.ptc[1].z + pbary[2]*(float)t.ptc[2].z;
 	}
-	void Raster(const ImageRef& pt, const Point3f& bary) {
-		const Point3f pbary(PerspectiveCorrectBarycentricCoordinates(bary));
-		const Depth z(ComputeDepth(pbary));
+	void Raster(const ImageRef& pt, const Triangle& t, const Point3f& bary) {
+		const Point3f pbary(PerspectiveCorrectBarycentricCoordinates(t, bary));
+		const Depth z(ComputeDepth(t, pbary));
 		ASSERT(z > Depth(0));
 		Depth& depth = depthMap(pt);
 		if (depth == 0 || depth > z)
 			depth = z;
 	}
-	inline void operator()(const ImageRef& pt, const Point3f& bary) {
-		static_cast<DERIVED*>(this)->Raster(pt, bary);
+
+	struct TriangleRasterizer {
+		Triangle& triangle;
+		Rasterizer& rasterizer;
+		TriangleRasterizer(Triangle& t, Rasterizer& r) : triangle(t), rasterizer(r) {}
+		inline cv::Size Size() const {
+			return rasterizer.Size();
+		}
+		inline void operator()(const ImageRef& pt, const Point3f& bary) const {
+			rasterizer.Raster(pt, triangle, bary);
+		}
+	};
+	inline TriangleRasterizer CreateTriangleRasterizer(Triangle& triangle) {
+		return TriangleRasterizer(triangle, *static_cast<DERIVED*>(this));
 	}
 };
 
@@ -328,29 +356,34 @@ struct TRasterMeshBase {
 template <typename DERIVED>
 struct TRasterMesh : TRasterMeshBase<DERIVED> {
 	typedef TRasterMeshBase<DERIVED> Base;
+	using typename Base::Triangle;
 
 	using Base::camera;
 	using Base::depthMap;
-
-	using Base::ptc;
-	using Base::pti;
 
 	const Mesh::VertexArr& vertices;
 
 	TRasterMesh(const Mesh::VertexArr& _vertices, const Camera& _camera, DepthMap& _depthMap)
 		: Base(_camera, _depthMap), vertices(_vertices) {}
 
-	void Project(const Mesh::Face& facet) {
+	template <typename TriangleRasterizer>
+	void Project(const Mesh::Face& facet, TriangleRasterizer& tr) {
 		// project face vertices to image plane
 		for (int v=0; v<3; ++v) {
 			// skip face if not completely inside
-			if (!static_cast<DERIVED*>(this)->ProjectVertex(vertices[facet[v]], v))
+			if (!static_cast<DERIVED*>(this)->ProjectVertex(vertices[facet[v]], v, tr.triangle))
 				return;
 		}
 		// draw triangle
-		Image8U3::RasterizeTriangleBary(pti[0], pti[1], pti[2], *this);
+		Image8U3::RasterizeTriangleBary(tr.triangle.pti[0], tr.triangle.pti[1], tr.triangle.pti[2], tr);
+	}
+	void Project(const Mesh::Face& facet) {
+		Triangle triangle;
+		Project(facet, this->CreateTriangleRasterizer(triangle));
 	}
 };
+
+bool TestMeshProjectionMT(const Mesh& mesh, const Image& image);
 /*----------------------------------------------------------------*/
 
 

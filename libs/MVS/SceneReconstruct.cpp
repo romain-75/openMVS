@@ -38,8 +38,8 @@
 #include <CGAL/Triangulation_cell_base_with_info_3.h>
 #include <CGAL/Spatial_sort_traits_adapter_3.h>
 #include <CGAL/AABB_tree.h>
-#include <CGAL/AABB_traits.h>
-#include <CGAL/AABB_triangle_primitive.h>
+#include <CGAL/AABB_traits_3.h>
+#include <CGAL/AABB_triangle_primitive_3.h>
 #include <CGAL/Polyhedron_3.h>
 #include <CGAL/Kernel/global_functions.h>
 
@@ -197,7 +197,7 @@ protected:
 
 // S T R U C T S ///////////////////////////////////////////////////
 
-// construct the mesh out of the dense point cloud using Delaunay tetrahedralization & graph-cut method
+// construct the mesh out of the dense point-cloud using Delaunay tetrahedralization & graph-cut method
 // see "Exploiting Visibility Information in Surface Reconstruction to Preserve Weakly Supported Surfaces", Jancosek and Pajdla, 2015
 namespace DELAUNAY {
 typedef CGAL::Exact_predicates_inexact_constructions_kernel kernel_t;
@@ -403,6 +403,7 @@ void fetchCellFacets(const delaunay_t& Tr, const std::vector<facet_t>& hullFacet
 	// find all facets on the convex-hull in camera's view
 	// create the 4 frustum planes
 	ASSERT(facets.empty());
+<<<<<<< HEAD
 	#if 0
 	typedef TFrustum<REAL,4> Frustum;
 	//std::cout << "pouet" << imageData.width << " " << imageData.height << " " <<  std::endl;
@@ -415,6 +416,9 @@ void fetchCellFacets(const delaunay_t& Tr, const std::vector<facet_t>& hullFacet
 	const TFrustum<REAL,4> frustum(imageData.camera.P, imageData.width, imageData.height, 0, 1);
 #endif
 
+=======
+	const TFrustum<REAL,4> frustum(imageData.camera.P, imageData.width, imageData.height, 0, 1);
+>>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	// loop over all cells
 	const point_t ptOrigin(MVS2CGAL(imageData.camera.C));
 	for (const facet_t& face: hullFacets) {

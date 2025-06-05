@@ -278,6 +278,11 @@ public:
 
 	Camera& operator= (const CameraIntern& camera);
 
+	Camera GetScaled(REAL s) const; // return a camera scaled by the given factor
+	Camera GetScaled(const cv::Size& size, const cv::Size& newSize) const; // return a camera scaled to the given resolution
+
+	Matrix4x4 GetP() const; // the composed projection matrix (4x4) assuming valid P
+	Matrix4x4 GetRC() const; // the composed transform matrix (4x4)
 	void ComposeP_RC(); // compose P from R and C only
 	void ComposeP(); // compose P from K, R and C
 	void DecomposeP_RC(); // decompose P in R and C, keep K unchanged
@@ -441,39 +446,22 @@ public:
 
 	// compute the projection scale in this camera of the given world point
 	template <typename TYPE>
+	inline TYPE GetFootprintImage(TYPE depth) const {
+		return static_cast<TYPE>(GetFocalLength() / depth);
+	}
+	template <typename TYPE>
 	inline TYPE GetFootprintImage(const TPoint3<TYPE>& X) const {
-		#if 0
-		const TYPE fSphereRadius(1);
-		const TPoint3<TYPE> camX(TransformPointW2C(X));
-		return norm(TransformPointC2I(TPoint3<TYPE>(camX.x+fSphereRadius,camX.y,camX.z))-TransformPointC2I(camX));
-		#else
-		return static_cast<TYPE>(GetFocalLength() / PointDepth(X));
-		#endif
+		return GetFootprintImage(PointDepth(X));
 	}
 	// compute the surface the projected pixel covers at the given depth
 	template <typename TYPE>
-	inline TYPE GetFootprintWorldSq(const TPoint2<TYPE>& x, TYPE depth) const {
-		#if 0
-		return SQUARE(GetFocalLength());
-		#else
-		// improved version of the above
-		return SQUARE(depth) / (SQUARE(GetFocalLength()) + normSq(TransformPointI2V(x)));
-		#endif
-	}
-	template <typename TYPE>
-	inline TYPE GetFootprintWorld(const TPoint2<TYPE>& x, TYPE depth) const {
-		return depth / SQRT(SQUARE(GetFocalLength()) + normSq(TransformPointI2V(x)));
+	inline TYPE GetFootprintWorld(TYPE depth) const {
+		return static_cast<TYPE>(depth / GetFocalLength());
 	}
 	// same as above, but the 3D point is given
 	template <typename TYPE>
-	inline TYPE GetFootprintWorldSq(const TPoint3<TYPE>& X) const {
-		const TPoint3<TYPE> camX(TransformPointW2C(X));
-		return GetFootprintWorldSq(TPoint2<TYPE>(camX.x/camX.z,camX.y/camX.z), camX.z);
-	}
-	template <typename TYPE>
 	inline TYPE GetFootprintWorld(const TPoint3<TYPE>& X) const {
-		const TPoint3<TYPE> camX(TransformPointW2C(X));
-		return GetFootprintWorld(TPoint2<TYPE>(camX.x/camX.z,camX.y/camX.z), camX.z);
+		return GetFootprintWorld(PointDepth(X));
 	}
 
 	#ifdef _USE_BOOST

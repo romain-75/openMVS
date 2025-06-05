@@ -75,6 +75,10 @@ bool UnitTests()
 bool PipelineTest(bool verbose=false)
 {
 	TD_TIMER_START();
+	#if 0 && defined(_USE_CUDA)
+	// force CPU for testing even if CUDA is available
+	SEACAVE::CUDA::desiredDeviceID = -2;
+	#endif
 	Scene scene;
 	if (!scene.Load(MAKE_PATH("scene.mvs"))) {
 		VERBOSE("ERROR: TestDataset failed loading the scene!");
@@ -82,24 +86,27 @@ bool PipelineTest(bool verbose=false)
 	}
 	OPTDENSE::init();
 	OPTDENSE::bRemoveDmaps = true;
-	if (!scene.DenseReconstruction() || scene.pointcloud.GetSize() < 200000u) {
-		VERBOSE("ERROR: TestDataset failed estimating dense point cloud!");
+	if (!scene.DenseReconstruction() || scene.pointcloud.GetSize() < 50000u) {
+		VERBOSE("ERROR: TestDataset failed estimating dense point-cloud!");
 		return false;
 	}
 	if (verbose)
 		scene.pointcloud.Save(MAKE_PATH("scene_dense.ply"));
-	if (!scene.ReconstructMesh() || scene.mesh.faces.size() < 75000u) {
+	if (!scene.ReconstructMesh() || scene.mesh.faces.size() < 25000u) {
 		VERBOSE("ERROR: TestDataset failed reconstructing the mesh!");
 		return false;
 	}
 	if (verbose)
 		scene.mesh.Save(MAKE_PATH("scene_dense_mesh.ply"));
-	constexpr float decimate = 0.5f;
+	constexpr float decimate = 0.7f;
 	scene.mesh.Clean(decimate);
-	if (!ISINSIDE(scene.mesh.faces.size(), 35000u, 45000u)) {
+	if (!ISINSIDE(scene.mesh.faces.size(), 18000u, 30000u)) {
 		VERBOSE("ERROR: TestDataset failed cleaning the mesh!");
 		return false;
 	}
+	#ifdef _USE_OPENMP
+	TestMeshProjectionMT(scene.mesh, scene.images[1]);
+	#endif
 	if (!scene.TextureMesh(0, 0) || !scene.mesh.HasTexture()) {
 		VERBOSE("ERROR: TestDataset failed texturing the mesh!");
 		return false;
