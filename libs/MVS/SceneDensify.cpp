@@ -37,7 +37,9 @@
 
 using namespace MVS;
 
-extern void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, int chaine3, std::string chaine4, bool logEvenementiel);
+double profondeurMaximaleLocal = -1.0;
+double hauteurMaximaleLocal = -1.0;
+
 
 // D E F I N E S ///////////////////////////////////////////////////
 
@@ -45,9 +47,6 @@ extern void outputLogSQL(std::string nature, std::string chaine1, std::string ch
 #ifdef _USE_OPENMP
 #define DENSE_USE_OPENMP
 #endif
-
-double profondeurMaximaleLocal = -1.0;
-double hauteurMaximaleLocal = -1.0;
 
 
 // S T R U C T S ///////////////////////////////////////////////////
@@ -141,138 +140,6 @@ DepthMapsData::~DepthMapsData()
 } // destructor
 /*----------------------------------------------------------------*/
 
-<<<<<<< HEAD
-
-// globally choose the best target view for each image,
-// trying in the same time the selected image pairs to cover the whole scene;
-// the map of selected neighbors for each image is returned in neighborsMap.
-// For each view a list of neighbor views ordered by number of shared sparse points and overlapped image area is given.
-// Next a graph is formed such that the vertices are the views and two vertices are connected by an edge if the two views have each other as neighbors.
-// For each vertex, a list of possible labels is created using the list of neighbor views and scored accordingly (the score is normalized by the average score).
-// For each existing edge, the score is defined such that pairing the same two views for any two vertices is discouraged (a constant high penalty is applied for such edges).
-// This primal-dual defined problem, even if NP hard, can be solved by a Belief Propagation like algorithm, obtaining in general a solution close enough to optimality.
-bool DepthMapsData::SelectViews(IIndexArr& images, IIndexArr& imagesMap, IIndexArr& neighborsMap)
-{
-	// find all pair of images valid for dense reconstruction
-	typedef std::unordered_map<uint64_t,float> PairAreaMap;
-	PairAreaMap edges;
-	double totScore(0);
-	unsigned numScores(0);
-	FOREACH(i, images) {
-		const IIndex idx(images[i]);
-		ASSERT(imagesMap[idx] != NO_ID);
-		const ViewScoreArr& neighbors(arrDepthData[idx].neighbors);
-		ASSERT(neighbors.size() <= OPTDENSE::nMaxViews);
-		// register edges
-		for (const ViewScore& neighbor: neighbors) {
-			const IIndex idx2(neighbor.ID);
-			ASSERT(imagesMap[idx2] != NO_ID);
-			edges[MakePairIdx(idx,idx2)] = neighbor.area;
-			totScore += neighbor.score;
-			++numScores;
-		}
-	}
-	if (edges.empty())
-		return false;
-	const float avgScore((float)(totScore/(double)numScores));
-
-	// run global optimization
-	const float fPairwiseMul = OPTDENSE::fPairwiseMul; // default 0.3
-	const float fEmptyUnaryMult = 6.f;
-	const float fEmptyPairwise = 8.f*OPTDENSE::fPairwiseMul;
-	const float fSamePairwise = 24.f*OPTDENSE::fPairwiseMul;
-	const IIndex _num_labels = OPTDENSE::nMaxViews+1; // N neighbors and an empty state
-	const IIndex _num_nodes = images.size();
-	typedef MRFEnergy<TypeGeneral> MRFEnergyType;
-	CAutoPtr<MRFEnergyType> energy(new MRFEnergyType(TypeGeneral::GlobalSize()));
-	CAutoPtrArr<MRFEnergyType::NodeId> nodes(new MRFEnergyType::NodeId[_num_nodes]);
-	typedef SEACAVE::cList<TypeGeneral::REAL, TypeGeneral::REAL, 0> EnergyCostArr;
-	// unary costs: inverse proportional to the image pair score
-	EnergyCostArr arrUnary(_num_labels);
-	for (IIndex n=0; n<_num_nodes; ++n) {
-		const ViewScoreArr& neighbors(arrDepthData[images[n]].neighbors);
-		FOREACH(k, neighbors)
-			arrUnary[k] = avgScore/neighbors[k].score; // use average score to normalize the values (not to depend so much on the number of features in the scene)
-		arrUnary[neighbors.size()] = fEmptyUnaryMult*(neighbors.empty()?avgScore*0.01f:arrUnary[neighbors.size()-1]);
-		nodes[n] = energy->AddNode(TypeGeneral::LocalSize(neighbors.size()+1), TypeGeneral::NodeData(arrUnary.data()));
-	}
-	// pairwise costs: as ratios between the area to be covered and the area actually covered
-	EnergyCostArr arrPairwise(_num_labels*_num_labels);
-	for (PairAreaMap::const_reference edge: edges) {
-		const PairIdx pair(edge.first);
-		const float area(edge.second);
-		const ViewScoreArr& neighborsI(arrDepthData[pair.i].neighbors);
-		const ViewScoreArr& neighborsJ(arrDepthData[pair.j].neighbors);
-		arrPairwise.Empty();
-		FOREACHPTR(pNj, neighborsJ) {
-			const IIndex i(pNj->ID);
-			const float areaJ(area/pNj->area);
-			FOREACHPTR(pNi, neighborsI) {
-				const IIndex j(pNi->ID);
-				const float areaI(area/pNi->area);
-				arrPairwise.Insert(pair.i == i && pair.j == j ? fSamePairwise : fPairwiseMul*(areaI+areaJ));
-			}
-			arrPairwise.Insert(fEmptyPairwise+fPairwiseMul*areaJ);
-		}
-		for (const ViewScore& Ni: neighborsI) {
-			const float areaI(area/Ni.area);
-			arrPairwise.Insert(fPairwiseMul*areaI+fEmptyPairwise);
-		}
-		arrPairwise.Insert(fEmptyPairwise*2);
-		const IIndex nodeI(imagesMap[pair.i]);
-		const IIndex nodeJ(imagesMap[pair.j]);
-		energy->AddEdge(nodes[nodeI], nodes[nodeJ], TypeGeneral::EdgeData(TypeGeneral::GENERAL, arrPairwise.Begin()));
-	}
-
-	// minimize energy
-	MRFEnergyType::Options options;
-	options.m_eps = OPTDENSE::fOptimizerEps;
-	options.m_iterMax = OPTDENSE::nOptimizerMaxIters;
-	#ifndef _RELEASE
-	options.m_printIter = 1;
-	options.m_printMinIter = 1;
-	#endif
-	#if 1
-	TypeGeneral::REAL energyVal, lowerBound;
-	energy->Minimize_TRW_S(options, lowerBound, energyVal);
-	#else
-	TypeGeneral::REAL energyVal;
-	energy->Minimize_BP(options, energyVal);
-	#endif
-
-	// extract optimized depth map
-	neighborsMap.Resize(_num_nodes);
-	for (IIndex n=0; n<_num_nodes; ++n) {
-		const ViewScoreArr& neighbors(arrDepthData[images[n]].neighbors);
-		IIndex& idxNeighbor = neighborsMap[n];
-		const IIndex label((IIndex)energy->GetSolution(nodes[n]));
-		ASSERT(label <= neighbors.GetSize());
-		if (label == neighbors.GetSize()) {
-			idxNeighbor = NO_ID; // empty
-		} else {
-			idxNeighbor = label;
-			DEBUG_ULTIMATE("\treference image %3u paired with target image %3u (idx %2u)", images[n], neighbors[label].ID, label);
-		}
-	}
-
-	// remove all images with no valid neighbors
-	RFOREACH(i, neighborsMap) {
-		if (neighborsMap[i] == NO_ID) {
-			// remove image with no neighbors
-			for (IIndex& imageMap: imagesMap)
-				if (imageMap != NO_ID && imageMap > i)
-					--imageMap;
-			imagesMap[images[i]] = NO_ID;
-			images.RemoveAtMove(i);
-			neighborsMap.RemoveAtMove(i);
-		}
-	}
-	return !images.IsEmpty();
-} // SelectViews
-/*----------------------------------------------------------------*/
-
-=======
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 // compute visibility for the reference image (the first image in "images")
 // and select the best views for reconstructing the depth-map;
 // extract also all 3D points seen by the reference image
@@ -341,10 +208,8 @@ bool DepthMapsData::InitViews(DepthData& depthData, IIndex idxNeighbor, IIndex n
 		const float fMinScore(MAXF(depthData.neighbors.First().score*OPTDENSE::fViewMinScoreRatio, OPTDENSE::fViewMinScore));
 		for (const ViewScore& neighbor: depthData.neighbors) {
 			if ((numNeighbors && depthData.images.GetSize() > numNeighbors) ||
-                (neighbor.score < fMinScore))
+				(neighbor.score < fMinScore))
 				break;
-            //if (neighbor.idx.scale < 0.)
-            //    continue;
 			DepthData::ViewData& viewTrg = depthData.images.AddEmpty();
 			viewTrg.pImageData = &scene.images[neighbor.ID];
 			viewTrg.scale = neighbor.scale;
@@ -475,7 +340,6 @@ bool DepthMapsData::InitDepthMap(DepthData& depthData)
 	TD_TIMER_STARTD();
 
 	ASSERT(depthData.images.GetSize() > 1 && !depthData.points.IsEmpty());
-
 	const DepthData::ViewData& image(depthData.GetView());
 	TriangulatePoints2DepthMap(image, scene.pointcloud, depthData.points, depthData.depthMap, depthData.normalMap, depthData.dMin, depthData.dMax, OPTDENSE::bAddCorners, OPTDENSE::bInitSparse);
 	depthData.dMin *= 0.9f;
@@ -688,11 +552,7 @@ bool DepthMapsData::EstimateDepthMap(IIndex idxImage, int nGeometricIter)
 		#endif
 		if (prevDepthMapSize != size || OPTDENSE::nIgnoreMaskLabel >= 0) {
 			BitMatrix mask;
-<<<<<<< HEAD
-			if (OPTDENSE::nIgnoreMaskLabel >= 0 && DepthEstimator::ImportIgnoreMask(*image.pImageData, depthData.depthMap.size(), (uint16_t)OPTDENSE::nIgnoreMaskLabel, mask))
-=======
 			if (OPTDENSE::nIgnoreMaskLabel >= 0 && DepthEstimator::ImportIgnoreMask(*image.pImageData, depthData.depthMap.size(), (uint8_t)OPTDENSE::nIgnoreMaskLabel, mask))
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				depthData.ApplyIgnoreMask(mask);
 			DepthEstimator::MapMatrix2ZigzagIdx(size, coords, mask, MAXF(64,(int)nMaxThreads*8));
 			#if 0 && !defined(_RELEASE)
@@ -1060,12 +920,8 @@ bool DepthMapsData::GapInterpolation(DepthData& depthData)
 /*----------------------------------------------------------------*/
 
 
-<<<<<<< HEAD
-// filter depth-map, one pixel at a time, using confidence based fusion or neighbor pixels
-bool DepthMapsData::FilterDepthMap(DepthData& depthDataRef, const IIndexArr& idxNeighbors, bool bAdjust, double profondeurMaximale, double hauteurMaximale)
-=======
 // adjust confidence-map based on the depth-map and the confidence-maps of the neighbor depth-maps
-bool DepthMapsData::AdjustConfidenceFast(DepthData& depthDataRef, const IIndexArr& idxNeighbors)
+bool DepthMapsData::AdjustConfidenceFast(DepthData& depthDataRef, const IIndexArr& idxNeighbors, double profondeurMaximale, double hauteurMaximale)
 {
 	TD_TIMER_STARTD();
 
@@ -1103,7 +959,7 @@ bool DepthMapsData::AdjustConfidenceFast(DepthData& depthDataRef, const IIndexAr
 				if (!depthData.depthMap.isInside(x))
 					continue;
 				const Depth depth(depthData.depthMap(x));
-				if (depth <= 0)
+				if (depth <= 0 || (profondeurMaximale > 0. && depth > profondeurMaximale))
 					continue;
 				const Depth diff(DepthSimilarity((Depth)camX.z, depth));
 				const float conf(depthData.confMap(x));
@@ -1143,14 +999,9 @@ bool DepthMapsData::AdjustConfidenceFast(DepthData& depthDataRef, const IIndexAr
 /*----------------------------------------------------------------*/
 
 // filter confidence-map, one pixel at a time, using confidence based fusion of neighbor pixels
-bool DepthMapsData::AdjustConfidence(DepthData& depthDataRef, const IIndexArr& idxNeighbors)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
+bool DepthMapsData::AdjustConfidence(DepthData& depthDataRef, const IIndexArr& idxNeighbors, double profondeurMaximale, double hauteurMaximale)
 {
 	TD_TIMER_STARTD();
-    
-    //std::cout << "map " << depthDataRef.GetView().GetID() << std::endl;
-    
-//    return true;
 
 	// count valid neighbor depth-maps
 	ASSERT(depthDataRef.IsValid() && !depthDataRef.IsEmpty());
@@ -1170,17 +1021,9 @@ bool DepthMapsData::AdjustConfidence(DepthData& depthDataRef, const IIndexArr& i
 		depthMap.create(sizeRef);
 		depthMap.memset(0);
 		ConfidenceMap& confMap = confMaps[n];
-<<<<<<< HEAD
-		if (bAdjust) {
-			confMap.create(sizeRef);
-			confMap.memset(0);
-		}
-		const IIndex idxView = depthDataRef.neighbors[idxNeighbors[(IIndex)n]].ID;
-=======
 		confMap.create(sizeRef);
 		confMap.memset(0);
 		const IIndex idxView = idxNeighbors[n];
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		const DepthData& depthData = arrDepthData[idxView];
 		const Camera& camera = depthData.GetView().camera;
 		for (int i=0; i<depthData.depthMap.rows; ++i) {
@@ -1192,7 +1035,7 @@ bool DepthMapsData::AdjustConfidence(DepthData& depthDataRef, const IIndexArr& i
 				ASSERT(depth > 0);
 				const Point3 X(camera.TransformPointI2W(Point3(x.x,x.y,depth)));
 				const Point3 camX(cameraRef.TransformPointW2C(X));
-				if (camX.z <= 0 || (hauteurMaximale > 0. && camX.y > hauteurMaximale) )
+				if (camX.z <= 0)
 					continue;
 				#if 0
 				// set depth on the rounded image projection only
@@ -1238,78 +1081,6 @@ bool DepthMapsData::AdjustConfidence(DepthData& depthDataRef, const IIndexArr& i
 	#if TD_VERBOSE != TD_VERBOSE_OFF
 	size_t nProcessed(0), nDiscarded(0);
 	#endif
-<<<<<<< HEAD
-	if (bAdjust) {
-		// average similar depths, and decrease confidence if depths do not agree
-		// (inspired by: "Real-Time Visibility-Based Fusion of Depth Maps", Merrell, 2007)
-		for (int i=0; i<sizeRef.height; ++i) {
-			for (int j=0; j<sizeRef.width; ++j) {
-				const ImageRef xRef(j,i);
-				const Depth depth(depthDataRef.depthMap(xRef));
-				if (depth == 0) {
-					newDepthMap(xRef) = 0;
-					newConfMap(xRef) = 0;
-					continue;
-				}
-				ASSERT(depth > 0);
-				#if TD_VERBOSE != TD_VERBOSE_OFF
-				++nProcessed;
-				#endif
-				// update best depth and confidence estimate with all estimates
-				float posConf(depthDataRef.confMap(xRef)), negConf(0);
-				Depth avgDepth(depth*posConf);
-				unsigned nPosViews(0), nNegViews(0);
-				unsigned n(N);
-				do {
-					const Depth d(depthMaps[--n](xRef));
-					if (d == 0) {
-						if (nPosViews + nNegViews + n < nMinViews)
-							goto DiscardDepth;
-						continue;
-					}
-					ASSERT(d > 0);
-					if (IsDepthSimilar(depth, d, thDepthDiff)) {
-						// average similar depths
-						const float c(confMaps[n](xRef));
-						avgDepth += d*c;
-						posConf += c;
-						++nPosViews;
-					} else {
-						// penalize confidence
-						if (depth > d) {
-							// occlusion
-							negConf += confMaps[n](xRef);
-						} else {
-							// free-space violation
-							const DepthData& depthData = arrDepthData[depthDataRef.neighbors[idxNeighbors[n]].ID];
-							const Camera& camera = depthData.images.First().camera;
-							const Point3 X(cameraRef.TransformPointI2W(Point3(xRef.x,xRef.y,depth)));
-							const ImageRef x(ROUND2INT(camera.TransformPointW2I(X)));
-							if (depthData.confMap.isInside(x)) {
-								const float c(depthData.confMap(x));
-								negConf += (c > 0 ? c : confMaps[n](xRef));
-							} else
-								negConf += confMaps[n](xRef);
-						}
-						++nNegViews;
-					}
-				} while (n);
-				ASSERT(nPosViews+nNegViews >= nMinViews);
-				// if enough good views and positive confidence...
-				if (nPosViews >= nMinViewsAdjust && posConf > negConf && ISINSIDE(avgDepth/=posConf, depthDataRef.dMin, depthDataRef.dMax)) {
-					// consider this pixel an inlier
-					newDepthMap(xRef) = avgDepth;
-					newConfMap(xRef) = posConf - negConf;
-				} else {
-					// consider this pixel an outlier
-					DiscardDepth:
-					newDepthMap(xRef) = 0;
-					newConfMap(xRef) = 0;
-					#if TD_VERBOSE != TD_VERBOSE_OFF
-					++nDiscarded;
-					#endif
-				}
-=======
 	// average similar depths, and decrease confidence if depths do not agree
 	// (inspired by: "Real-Time Visibility-Based Fusion of Depth Maps", Merrell, 2007)
 	for (int i=0; i<sizeRef.height; ++i) {
@@ -1320,7 +1091,6 @@ bool DepthMapsData::AdjustConfidence(DepthData& depthDataRef, const IIndexArr& i
 				newDepthMap(xRef) = 0;
 				newConfMap(xRef) = 0;
 				continue;
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			}
 			ASSERT(depth > 0);
 			#if TD_VERBOSE != TD_VERBOSE_OFF
@@ -1597,112 +1367,14 @@ void DepthMapsData::FuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, b
 	typedef SEACAVE::cList<Proj,const Proj&,0,4,uint32_t> ProjArr;
 	typedef SEACAVE::cList<ProjArr,const ProjArr&,1,65536> ProjsArr;
 
-<<<<<<< HEAD
-	// find best connected images
-	IndexScoreArr connections(scene.images.size());
-	size_t nPointsEstimate(0);
-	bool bNormalMap(true);
-	#ifdef DENSE_USE_OPENMP
-	bool bAbort(false);
-	#pragma omp parallel for shared(connections, nPointsEstimate, bNormalMap, bAbort)
-	for (int64_t i=0; i<(int64_t)scene.images.size(); ++i) {
-		#pragma omp flush (bAbort)
-		if (bAbort)
-			continue;
-		const IIndex idxImage((IIndex)i);
-	#else
-	FOREACH(idxImage, scene.images) {
-	#endif
-		IndexScore& connection = connections[idxImage];
-		DepthData& depthData = arrDepthData[idxImage];
-		if (!depthData.IsValid()) {
-			connection.idx = NO_ID;
-			connection.score = 0;
-			continue;
-		}
-		const String fileName(ComposeDepthFilePath(depthData.GetView().GetID(), "dmap"));
-		if (depthData.IncRef(fileName) == 0) {
-			#ifdef DENSE_USE_OPENMP
-			bAbort = true;
-			#pragma omp flush (bAbort)
-			continue;
-			#else
-			return;
-			#endif
-		}
-		ASSERT(!depthData.IsEmpty());
-		connection.idx = idxImage;
-		connection.score = (float)scene.images[idxImage].neighbors.size();
-		if (bEstimateNormal && depthData.normalMap.empty()) {
-			EstimateNormalMap(depthData.images.front().camera.K, depthData.depthMap, depthData.normalMap);
-			if (!depthData.Save(fileName)) {
-				#ifdef DENSE_USE_OPENMP
-				bAbort = true;
-				#pragma omp flush (bAbort)
-				continue;
-				#else
-				return;
-				#endif
-			}
-		}
-		#ifdef DENSE_USE_OPENMP
-		#pragma omp critical
-		#endif
-		{
-		nPointsEstimate += ROUND2INT(depthData.depthMap.area()*(0.5f/*valid*/*0.3f/*new*/));
-		if (depthData.normalMap.empty())
-			bNormalMap = false;
-		}
-	}
-	#ifdef DENSE_USE_OPENMP
-	if (bAbort)
-		return;
-	#endif
-	connections.Sort();
-	while (!connections.empty() && connections.back().score <= 0)
-		connections.pop_back();
-	if (connections.empty()) {
-		DEBUG("error: no valid depth-maps found");
-		return;
-	}
-
-	// fuse all depth-maps, processing the best connected images first
-	const unsigned nMinViewsFuse(MINF(OPTDENSE::nMinViewsFuse, scene.images.size()));
-=======
 	// fuse all depth-maps, processing the best connected images first
 	const unsigned nMinViewsFuse(MINF(OPTDENSE::nMinViewsFuse, arrDepthData.size()));
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	const float normalError(COS(FD2R(OPTDENSE::fNormalDiffThreshold)));
 	const IIndex numDMapsReserveFusion(10);
 	CLISTDEF0(Depth*) invalidDepths(0, 32);
 	size_t nDepths(0);
 	typedef TImage<cuint32_t> DepthIndex;
 	typedef cList<DepthIndex> DepthIndexArr;
-<<<<<<< HEAD
-	DepthIndexArr arrDepthIdx(scene.images.size());
-	ProjsArr projs(0, nPointsEstimate);
-	if (bEstimateNormal && !bNormalMap)
-		bEstimateNormal = false;
-	pointcloud.points.reserve(nPointsEstimate);
-	pointcloud.pointViews.reserve(nPointsEstimate);
-	pointcloud.pointWeights.reserve(nPointsEstimate);
-	if (bEstimateColor)
-		pointcloud.colors.reserve(nPointsEstimate);
-	if (bEstimateNormal)
-		pointcloud.normals.reserve(nPointsEstimate);
-	Util::Progress progress(_T("Fused depth-maps"), connections.size());
-	GET_LOGCONSOLE().Pause();
-	for (const IndexScore& connection: connections) {
-		TD_TIMER_STARTD();
-		const uint32_t idxImage(connection.idx);
-		const DepthData& depthData(arrDepthData[idxImage]);
-		ASSERT(!depthData.images.empty() && !depthData.neighbors.empty());
-		for (const ViewScore& neighbor: depthData.neighbors) {
-			DepthIndex& depthIdxs = arrDepthIdx[neighbor.ID];
-			if (!depthIdxs.empty())
-				continue;
-			const DepthData& depthDataB(arrDepthData[neighbor.ID]);
-=======
 	DepthIndexArr arrDepthIdx(arrDepthData.size());
 	const size_t nPointsEstimate(arrDepthData.size() * 9000); //TODO: better estimate number of points
 	ProjsArr projs(0, nPointsEstimate);
@@ -1752,7 +1424,6 @@ void DepthMapsData::FuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, b
 			if (!depthDataB.IsValid())
 				continue;
 			cacheDMaps.UseImage(neighbor.ID);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			if (depthDataB.IsEmpty())
 				continue;
 			if (++numNeighbors >= OPTDENSE::nMaxViewsFuse)
@@ -1768,28 +1439,17 @@ void DepthMapsData::FuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, b
 			depthIdxs.memset((uint8_t)NO_ID);
 		}
 		ASSERT(!depthData.IsEmpty());
-<<<<<<< HEAD
-		const Image8U::Size sizeMap(depthData.depthMap.size());
-		const Image& imageData = *depthData.images.front().pImageData;
-		ASSERT(&imageData-scene.images.data() == idxImage);
-=======
 		const Image& imageData = *depthData.images.front().pImageData;
 		ASSERT(&imageData-scene.images.data() == idxImage);
 		ASSERT(depthData.depthMap.size() == depthData.size && imageData.GetSize() == depthData.size);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		DepthIndex& depthIdxs = arrDepthIdx[idxImage];
 		if (depthIdxs.empty()) {
 			depthIdxs.create(depthData.size);
 			depthIdxs.memset((uint8_t)NO_ID);
 		}
 		const size_t nNumPointsPrev(pointcloud.points.size());
-<<<<<<< HEAD
-		for (int i=0; i<sizeMap.height; ++i) {
-			for (int j=0; j<sizeMap.width; ++j) {
-=======
 		for (int i=0; i<depthData.size.height; ++i) {
 			for (int j=0; j<depthData.size.width; ++j) {
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				const ImageRef x(j,i);
 				const Depth depth(depthData.depthMap(x));
 				if (depth == 0)
@@ -1809,13 +1469,8 @@ void DepthMapsData::FuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, b
 				REAL confidence(weights.emplace_back(Conf2Weight(depthData.confMap.empty() ? 1.f : depthData.confMap(x),depth)));
 				ProjArr& pointProjs = projs.emplace_back();
 				pointProjs.emplace_back(Proj(x));
-<<<<<<< HEAD
-				const PointCloud::Normal normal(bNormalMap ? Cast<Normal::Type>(imageData.camera.R.t()*Cast<REAL>(depthData.normalMap(x))) : Normal(0,0,-1));
-				ASSERT(ISEQUAL(norm(normal), 1.f));
-=======
 				const PointCloud::Normal normal(!depthData.normalMap.empty() ? Cast<Normal::Type>(imageData.camera.R.t() * Cast<REAL>(depthData.normalMap(x))) : Normal(0, 0, -1));
 				ASSERT(ISEQUAL(norm(normal), 1.f), "Norm = ", norm(normal));
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				// check the projection in the neighbor depth-maps
 				Point3 X(point*confidence);
 				Pixel32F C(Cast<float>(imageData.image(x))*confidence);
@@ -1893,11 +1548,6 @@ void DepthMapsData::FuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, b
 				}
 			}
 		}
-<<<<<<< HEAD
-		ASSERT(pointcloud.points.size() == pointcloud.pointViews.size() && pointcloud.points.size() == pointcloud.pointWeights.size() && pointcloud.points.size() == projs.size());
-		DEBUG_ULTIMATE("Depths map for reference image %3u fused using %u depths maps: %u new points (%s)", idxImage, depthData.images.size()-1, pointcloud.points.size()-nNumPointsPrev, TD_TIMER_GET_FMT().c_str());
-		progress.display(&connection-connections.data());
-=======
 		fusedDMaps[idxImage] = true;
 		ASSERT(pointcloud.points.size() == pointcloud.pointViews.size() && pointcloud.points.size() == pointcloud.pointWeights.size() && pointcloud.points.size() == projs.size());
 		DEBUG_ULTIMATE("Depth-map for reference image %3u fused using %u depth-maps: %u new points, %u/%u cached images (%s)",
@@ -1907,22 +1557,16 @@ void DepthMapsData::FuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, b
 		cacheDMaps.SkipMemoryCheckIdxImage();
 		if (numDMapsFused % numDMapsReserveFusion == 0)
 			cacheDMaps.SetMaxMemory(GetAvailableMemory(arrDepthData, fusedDMaps, numDMapsReserveFusion, cacheDMaps.GetUsedMemory()));
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	}
 	GET_LOGCONSOLE().Play();
 	progress.close();
 	arrDepthIdx.Release();
 	cacheDMaps.ClearCache();	
 
-<<<<<<< HEAD
-	DEBUG_EXTRA("Depth-maps fused and filtered: %u depth-maps, %u depths, %u points (%d%%%%) (%s)",
-		connections.size(), nDepths, pointcloud.points.size(), ROUND2INT((100.f*pointcloud.points.size())/nDepths), TD_TIMER_GET_FMT().c_str());
-=======
 	DEBUG_EXTRA("Depth-maps fused and filtered: %u depth-maps, %u depths, %u points (%d%%%%), %.2f hits in %.2f cached (%s)",
 		numDMapsFused, nDepths, pointcloud.points.size(), ROUND2INT((100.f*pointcloud.points.size())/nDepths),
 		static_cast<double>(totalNumImageNeighborsInCache) / numDMapsFused,
 		static_cast<double>(totalNumImagesInCache) / numDMapsFused, TD_TIMER_GET_FMT().c_str());
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 
 	if (bEstimateNormal && !pointcloud.points.empty() && pointcloud.normals.empty()) {
 		// estimate normal also if requested (quite expensive if normal-maps not available)
@@ -2239,7 +1883,7 @@ bool Scene::DenseReconstruction(int nFusionMode, bool bCrop2ROI, float fBorderRO
 	DenseDepthMapData data(*this, nFusionMode);
 	
 	profondeurMaximaleLocal = profondeurMaximale;
-	hauteurMaximaleLocal = hauteurMaximale;
+	hauteurMaximaleLocal = hauteurMaximale;	
 
 	// estimate depth-maps
 	if (!ComputeDepthMaps(data, indexPremiereImage, indexDerniereImage, profondeurMaximale, hauteurMaximale))
@@ -2355,7 +1999,6 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 				#pragma omp critical
 				#endif
 				imagesMap[idxImage] = NO_ID;
-				std::cout << "Image " << idxImage << " ignoree" << std::endl;
 				continue;
 			}
 			// map image index
@@ -2409,7 +2052,6 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 		#endif
 			const IIndex idxImage(data.images[idx]);
 			ASSERT(imagesMap[idxImage] != NO_ID);
-			//std::cout << "idxImage : " << idxImage << ", idx : " << idx << std::endl;
 			DepthData& depthData(data.depthMaps.arrDepthData[idxImage]);
 			bool imageATraiter = data.depthMaps.SelectViews(depthData);
 			if (indexPremiereImage != -1 && ((int)idxImage < indexPremiereImage || (int)idxImage > indexDerniereImage))
@@ -2478,9 +2120,9 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 			data.depthMaps.pmCUDA->Release();
 			data.depthMaps.pmCUDA->Init(true);
 		}
-		#endif // _USE_CUDA		
+		#endif // _USE_CUDA
 		while (++data.nEstimationGeometricIter < (int)OPTDENSE::nEstimationGeometricIters) {
-		    // initialize the queue of images to be geometric processed
+			// initialize the queue of images to be geometric processed
 			if (data.nEstimationGeometricIter+1 == (int)OPTDENSE::nEstimationGeometricIters)
 				OPTDENSE::nOptimize = nOptimize;
 			data.idxImage = 0;
@@ -2509,8 +2151,6 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 				const DepthData& depthData(data.depthMaps.arrDepthData[idx]);
 				if (!depthData.IsValid())
 					continue;
-				if ( indexPremiereImage != -1 && ( (int) idx < indexPremiereImage || (int) idx > indexDerniereImage))
-    				continue;
 				const String rawName(ComposeDepthFilePath(depthData.GetView().GetID(), "dmap"));
 				File::deleteFile(rawName);
 				File::renameFile(ComposeDepthFilePath(depthData.GetView().GetID(), "geo.dmap"), rawName);
@@ -2538,7 +2178,7 @@ bool Scene::ComputeDepthMaps(DenseDepthMapData& data, int indexPremiereImage, in
 				pThread->join();
 		} else {
 			// single-thread execution
-			DenseReconstructionFilter((void*)&data, profondeurMaximale, hauteurMaximale);
+			DenseReconstructionFilter((void*)&data);
 		}
 		GET_LOGCONSOLE().Play();
 		if (!data.events.IsEmpty())
@@ -2564,26 +2204,22 @@ void Scene::DenseReconstructionEstimate(void* pData)
 		switch (evt->GetID()) {
 		case EVT_PROCESSIMAGE: {
 			const EVTProcessImage& evtImage = *((EVTProcessImage*)(Event*)evt);
-			//std::cout << "evtImage.idxImage : " << (int) evtImage.idxImage << " / " << (int)data.images.size() << std::endl;
 			if (evtImage.idxImage >= data.images.size()) {
 				if (nMaxThreads > 1) {
 					// close working threads
 					data.events.AddEvent(new EVTClose);
 				}
-				//std::cout << "return" << std::endl;
 				return;
 			}
 			// select views to reconstruct the depth-map for this image
 			const IIndex idx = data.images[evtImage.idxImage];
 			DepthData& depthData(data.depthMaps.arrDepthData[idx]);
-			//std::cout << "data.scene.images[idx].ID : " << data.scene.images[idx].ID << std::endl;
 			const bool depthmapComputed(data.nFusionMode < 0 || (data.nFusionMode >= 0 && data.nEstimationGeometricIter < 0 && File::access(ComposeDepthFilePath(data.scene.images[idx].ID, "dmap"))));
 			// initialize images pair: reference image and the best neighbor view
 			ASSERT(data.neighborsMap.IsEmpty() || data.neighborsMap[evtImage.idxImage] != NO_ID);
 			if (!data.depthMaps.InitViews(depthData, data.neighborsMap.IsEmpty()?NO_ID:data.neighborsMap[evtImage.idxImage], OPTDENSE::nNumViews, !depthmapComputed, depthmapComputed ? -1 : (data.nEstimationGeometricIter >= 0 ? 1 : 0))) {
 				// process next image
 				data.events.AddEvent(new EVTProcessImage((IIndex)Thread::safeInc(data.idxImage)));
-				//std::cout << "InitViews : bof" << std::endl;
 				break;
 			}
 			// try to load already compute depth-map for this image
@@ -2600,13 +2236,11 @@ void Scene::DenseReconstructionEstimate(void* pData)
 				data.events.AddEvent(new EVTProcessImage((uint32_t)Thread::safeInc(data.idxImage)));
 			} else {
 				// estimate depth-map
-				//std::cout << "estimate depth-map" << std::endl;
 				data.events.AddEventFirst(new EVTEstimateDepthMap(evtImage.idxImage));
 			}
 			break; }
 
 		case EVT_ESTIMATEDEPTHMAP: {
-						//std::cout << "EVT_ESTIMATEDEPTHMAP depth-map" << std::endl;
 			const EVTEstimateDepthMap& evtImage = *((EVTEstimateDepthMap*)(Event*)evt);
 			// request next image initialization to be performed while computing this depth-map
 			data.events.AddEvent(new EVTProcessImage((uint32_t)Thread::safeInc(data.idxImage)));
@@ -2614,17 +2248,14 @@ void Scene::DenseReconstructionEstimate(void* pData)
 			data.sem.Wait();
 			if (data.nFusionMode >= 0) {
 				// extract depth-map using Patch-Match algorithm
-				//std::cout << "extract depth-map using Patch-Match algorithm" << std::endl;
 				data.depthMaps.EstimateDepthMap(data.images[evtImage.idxImage], data.nEstimationGeometricIter);
 			} else {
 				// extract disparity-maps using SGM algorithm
 				if (data.nFusionMode == -1) {
-					//std::cout << "extract depth-map using SGM algorithm" << std::endl;
 					data.sgm.Match(*this, data.images[evtImage.idxImage], OPTDENSE::nNumViews);
 				} else {
 					// fuse existing disparity-maps
 					const IIndex idx(data.images[evtImage.idxImage]);
-					//std::cout << "fuse existing disparity-maps" << std::endl;
 					DepthData& depthData(data.depthMaps.arrDepthData[idx]);
 					data.sgm.Fuse(*this, data.images[evtImage.idxImage], OPTDENSE::nNumViews, 2, depthData.depthMap, depthData.confMap);
 					if (OPTDENSE::nEstimateNormals == 2)
@@ -2684,25 +2315,12 @@ void Scene::DenseReconstructionEstimate(void* pData)
 				}
 			}
 			#endif
-<<<<<<< HEAD
-			// save compute depth-map for this image			
-			if (!depthData.depthMap.empty()){
-
-				depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), data.nEstimationGeometricIter < 0 ? "dmap" :
-				 "geo.dmap"));
-				 
-				 //ExportPointCloud(ComposeDepthFilePath(depthData.GetView().GetID(), "ply"), *depthData.images.First().pImageData, depthData.depthMap, depthData.normalMap);
-			}
-
-=======
 			// save compute depth-map for this image
 			if (!depthData.depthMap.empty() &&
 				!depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), data.nEstimationGeometricIter < 0 ? "dmap" : "geo.dmap")))
 				exit(EXIT_FAILURE);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			depthData.ReleaseImages();
 			depthData.Release();
-			        outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)data.progress->processed/(float)data.progress->total),data.progress->msg,false);
 			data.progress->operator++();
 			break; }
 
@@ -2730,7 +2348,6 @@ void Scene::DenseReconstructionFilter(void* pData, double profondeurMaximale, do
 	while ((evt=data.events.GetEvent(0)) != NULL) {
 		switch (evt->GetID()) {
 		case EVT_FILTERDEPTHMAP: {
-		    //std::cout << "EVT_FILTERDEPTHMAP" << std::endl;
 			const EVTFilterDepthMap& evtImage = *((EVTFilterDepthMap*)(Event*)evt);
 			const IIndex idx = data.images[evtImage.idxImage];
 			DepthData& depthData(data.depthMaps.arrDepthData[idx]);
@@ -2742,20 +2359,13 @@ void Scene::DenseReconstructionFilter(void* pData, double profondeurMaximale, do
 			depthData.IncRef(ComposeDepthFilePath(depthData.GetView().GetID(), "dmap"));
 			const unsigned numMaxNeighbors(8);
 			IIndexArr idxNeighbors(0, depthData.neighbors.GetSize());
-<<<<<<< HEAD
-			FOREACH(n, depthData.neighbors) {
-				const IIndex idxView = depthData.neighbors[n].ID;
-				DepthData& depthDataPair = data.depthMaps.arrDepthData[idxView];
-=======
 			for (const ViewScore& neighbor: depthData.neighbors) {
 				DepthData& depthDataPair = data.depthMaps.arrDepthData[neighbor.ID];
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				if (!depthDataPair.IsValid())
 					continue;
 				if (depthDataPair.IncRef(ComposeDepthFilePath(depthDataPair.GetView().GetID(), "dmap")) == 0) {
 					// signal error and terminate
 					data.events.AddEventFirst(new EVTFail);
-                    //std::cout << "event fail" << std::endl;
 					return;
 				}
 				idxNeighbors.push_back(neighbor.ID);
@@ -2763,24 +2373,14 @@ void Scene::DenseReconstructionFilter(void* pData, double profondeurMaximale, do
 					break;
 			}
 			// filter the depth-map for this image
-<<<<<<< HEAD
-			if (data.depthMaps.FilterDepthMap(depthData, idxNeighbors, OPTDENSE::bFilterAdjust, profondeurMaximale, hauteurMaximale)) {
-=======
-			if (((OPTDENSE::nOptimize & OPTDENSE::ADJUST_CONFIDENCE_FAST) != 0 && data.depthMaps.AdjustConfidenceFast(depthData, idxNeighbors)) |
-				((OPTDENSE::nOptimize & OPTDENSE::ADJUST_CONFIDENCE) != 0 && data.depthMaps.AdjustConfidence(depthData, idxNeighbors))) {
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
+			if (((OPTDENSE::nOptimize & OPTDENSE::ADJUST_CONFIDENCE_FAST) != 0 && data.depthMaps.AdjustConfidenceFast(depthData, idxNeighbors, profondeurMaximale, hauteurMaximale)) |
+				((OPTDENSE::nOptimize & OPTDENSE::ADJUST_CONFIDENCE) != 0 && data.depthMaps.AdjustConfidence(depthData, idxNeighbors, profondeurMaximale, hauteurMaximale))) {
 				// load the filtered maps after all depth-maps were filtered
 				data.events.AddEvent(new EVTAdjustDepthMap(evtImage.idxImage));
 			}
 			// unload referenced depth-maps
-<<<<<<< HEAD
-			FOREACHPTR(pIdxNeighbor, idxNeighbors) {
-				const IIndex idxView = depthData.neighbors[*pIdxNeighbor].ID;
-				DepthData& depthDataPair = data.depthMaps.arrDepthData[idxView];
-=======
 			for (IIndex idxNeighbor: idxNeighbors) {
 				DepthData& depthDataPair = data.depthMaps.arrDepthData[idxNeighbor];
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				depthDataPair.DecRef();
 			}
 			depthData.DecRef();
@@ -2788,7 +2388,6 @@ void Scene::DenseReconstructionFilter(void* pData, double profondeurMaximale, do
 			break; }
 
 		case EVT_ADJUSTDEPTHMAP: {
-		    //std::cout << "EVT_ADJUSTDEPTHMAP" << std::endl;		
 			const EVTAdjustDepthMap& evtImage = *((EVTAdjustDepthMap*)(Event*)evt);
 			const IIndex idx = data.images[evtImage.idxImage];
 			DepthData& depthData(data.depthMaps.arrDepthData[idx]);
@@ -2802,7 +2401,6 @@ void Scene::DenseReconstructionFilter(void* pData, double profondeurMaximale, do
 			{
 				// signal error and terminate
 				data.events.AddEventFirst(new EVTFail);
-                //std::cout << "event fail 2 : " << depthData.GetView().GetID() << std::endl;
 				return;
 			}
 			ASSERT(depthData.GetRef() == 1);
@@ -2840,7 +2438,7 @@ void Scene::DenseReconstructionFilter(void* pData, double profondeurMaximale, do
 			if (!depthData.Save(ComposeDepthFilePath(depthData.GetView().GetID(), "dmap")))
 				exit(EXIT_FAILURE);
 			depthData.DecRef();
-outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)data.progress->processed/(float)data.progress->total),data.progress->msg,false);			data.progress->operator++();
+			data.progress->operator++();
 			break; }
 
 		case EVT_FAIL: {
@@ -2947,7 +2545,6 @@ void Scene::PointCloudFilter(int thRemove)
 			collector.Init(idxPoint, X, (int)views.size());
 			octree.Collect(collector, collector);
 		}
-		outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 		++progress;
 	}
 	progress.close();

@@ -408,21 +408,14 @@ macro(optimize_default_compiler_settings)
 		else()
 			set(CXX_CHECK_PREFIX "--std=")
 		endif()
-<<<<<<< HEAD
-=======
 		check_cxx_compiler_flag("${CXX_CHECK_PREFIX}c++23" SUPPORTS_STD_CXX23)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		check_cxx_compiler_flag("${CXX_CHECK_PREFIX}c++20" SUPPORTS_STD_CXX20)
 		check_cxx_compiler_flag("${CXX_CHECK_PREFIX}c++17" SUPPORTS_STD_CXX17)
 		check_cxx_compiler_flag("${CXX_CHECK_PREFIX}c++14" SUPPORTS_STD_CXX14)
 		check_cxx_compiler_flag("${CXX_CHECK_PREFIX}c++11" SUPPORTS_STD_CXX11)
-<<<<<<< HEAD
-		if(SUPPORTS_STD_CXX20)
-=======
 		if(SUPPORTS_STD_CXX23)
 			set(CMAKE_CXX_STANDARD 23)
 		elseif(SUPPORTS_STD_CXX20)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			set(CMAKE_CXX_STANDARD 20)
 		elseif(SUPPORTS_STD_CXX17)
 			set(CMAKE_CXX_STANDARD 17)
@@ -432,23 +425,6 @@ macro(optimize_default_compiler_settings)
 			set(CMAKE_CXX_STANDARD 11)
 		endif()
 	else()
-<<<<<<< HEAD
-		list(FIND CMAKE_CXX_COMPILE_FEATURES "cxx_std_20" CXX_STD_INDEX)
-		if(${CXX_STD_INDEX} GREATER -1)
-			set(CMAKE_CXX_STANDARD 20)
-		else()
-			list(FIND CMAKE_CXX_COMPILE_FEATURES "cxx_std_17" CXX_STD_INDEX)
-			if(${CXX_STD_INDEX} GREATER -1)
-				set(CMAKE_CXX_STANDARD 17)
-			else()
-				list(FIND CMAKE_CXX_COMPILE_FEATURES "cxx_std_14" CXX_STD_INDEX)
-				if(${CXX_STD_INDEX} GREATER -1)
-					set(CMAKE_CXX_STANDARD 14)
-				else()
-					list(FIND CMAKE_CXX_COMPILE_FEATURES "cxx_std_11" CXX_STD_INDEX)
-					if(${CXX_STD_INDEX} GREATER -1)
-						set(CMAKE_CXX_STANDARD 11)
-=======
 		list(FIND CMAKE_CXX_COMPILE_FEATURES "cxx_std_23" CXX_STD_INDEX)
 		if(${CXX_STD_INDEX} GREATER -1)
 			set(CMAKE_CXX_STANDARD 23)
@@ -469,17 +445,12 @@ macro(optimize_default_compiler_settings)
 						if(${CXX_STD_INDEX} GREATER -1)
 							set(CMAKE_CXX_STANDARD 11)
 						endif()
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 					endif()
 				endif()
 			endif()
 		endif()
 	endif()
-<<<<<<< HEAD
-	if(CLANG AND (CMAKE_CXX_STANDARD EQUAL 11 OR CMAKE_CXX_STANDARD EQUAL 14 OR CMAKE_CXX_STANDARD EQUAL 17 OR CMAKE_CXX_STANDARD EQUAL 20))
-=======
 	if(CLANG AND (CMAKE_CXX_STANDARD EQUAL 11 OR CMAKE_CXX_STANDARD EQUAL 14 OR CMAKE_CXX_STANDARD EQUAL 17 OR CMAKE_CXX_STANDARD EQUAL 20 OR CMAKE_CXX_STANDARD EQUAL 23))
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		set(CMAKE_EXE_LINKER_FLAGS "-stdlib=libc++")
 		add_extra_compiler_option(-stdlib=libc++)
 	endif()
@@ -534,15 +505,13 @@ macro(optimize_default_compiler_settings)
 		add_extra_compiler_option(-Wno-unnamed-type-template-args)
 		add_extra_compiler_option(-Wno-int-in-bool-context)
 		add_extra_compiler_option(-Wno-deprecated-declarations)
-<<<<<<< HEAD
-=======
 		add_extra_compiler_option(-Wno-deprecated-anon-enum-enum-conversion)
 		add_extra_compiler_option(-Wno-deprecated-enum-compare-conditional)
 		add_extra_compiler_option(-Wno-deprecated-enum-enum-conversion)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	  endif()
 	  add_extra_compiler_option(-fdiagnostics-show-option)
 	  add_extra_compiler_option(-ftemplate-backtrace-limit=0)
+	  add_extra_compiler_option(-Wno-missing-template-arg-list-after-template-kw)
 	  
 	  # The -Wno-long-long is required in 64bit systems when including system headers.
 	  if(X86_64)

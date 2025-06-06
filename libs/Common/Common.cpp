@@ -13,6 +13,7 @@
 
 void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, int chaine3, std::string chaine4, bool logEvenementiel){
 
+    // désactivation
     return ;
 
     static time_t precedentLog = time(nullptr);

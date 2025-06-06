@@ -41,14 +41,10 @@
 #include <CGAL/AABB_traits_3.h>
 #include <CGAL/AABB_triangle_primitive_3.h>
 #include <CGAL/Polyhedron_3.h>
-#include <CGAL/Kernel/global_functions.h>
-
-#include <opencv2/core/eigen.hpp>
-
-extern void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, int chaine3, std::string chaine4, bool logEvenementiel);
 
 using namespace MVS;
 
+extern void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, int chaine3, std::string chaine4, bool logEvenementiel);
 
 // D E F I N E S ///////////////////////////////////////////////////
 
@@ -403,22 +399,7 @@ void fetchCellFacets(const delaunay_t& Tr, const std::vector<facet_t>& hullFacet
 	// find all facets on the convex-hull in camera's view
 	// create the 4 frustum planes
 	ASSERT(facets.empty());
-<<<<<<< HEAD
-	#if 0
-	typedef TFrustum<REAL,4> Frustum;
-	//std::cout << "pouet" << imageData.width << " " << imageData.height << " " <<  std::endl;
-    Eigen::Matrix<double,3,4,Eigen::RowMajor> Ptmp ;
-    cv::cv2eigen(imageData.camera.P,Ptmp);
-    //imageData.camera.P
-	Frustum frustum(Ptmp, imageData.width, imageData.height, 0, 1);
-	//std::cout << "pouet2" << std::endl;
-#else
 	const TFrustum<REAL,4> frustum(imageData.camera.P, imageData.width, imageData.height, 0, 1);
-#endif
-
-=======
-	const TFrustum<REAL,4> frustum(imageData.camera.P, imageData.width, imageData.height, 0, 1);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	// loop over all cells
 	const point_t ptOrigin(MVS2CGAL(imageData.camera.C));
 	for (const facet_t& face: hullFacets) {

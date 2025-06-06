@@ -36,10 +36,6 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/connected_components.hpp>
 
-
-extern void outputLogSQL(std::string nature, std::string chaine1, std::string chaine2, int chaine3, std::string chaine4, bool logEvenementiel);
-
-
 using namespace MVS;
 
 
@@ -47,7 +43,7 @@ using namespace MVS;
 
 // uncomment to enable multi-threading based on OpenMP
 #ifdef _USE_OPENMP
-//#define TEXOPT_USE_OPENMP
+#define TEXOPT_USE_OPENMP
 #endif
 
 // uncomment to use SparseLU for solving the linear systems
@@ -255,9 +251,7 @@ struct MeshTexture {
 		void AddEdge(const TexCoord& p0, const TexCoord& p1) {
 			const TexCoord p01(p1 - p0);
 			const float length(norm(p01));
-			//ASSERT(length > 0.f);
-			if (length <= 0.f)
-			    return;
+			ASSERT(length > 0.f);
 			const int nSamples(ROUND2INT(MAXF(length, 1.f) * 2.f)-1);
 			AccumColor edgeAccumColor;
 			for (int s=0; s<nSamples; ++s) {
@@ -446,7 +440,6 @@ bool MeshTexture::ListCameraFaces(FaceDataViewArr& facesDatas, float fOutlierThr
 	for (int_t idx=0; idx<(int_t)views.size(); ++idx) {
 		#pragma omp flush (bAbort)
 		if (bAbort) {
-    		outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 			++progress;
 			continue;
 		}
@@ -456,7 +449,6 @@ bool MeshTexture::ListCameraFaces(FaceDataViewArr& facesDatas, float fOutlierThr
 	#endif
 		Image& imageData = images[idxView];
 		if (!imageData.IsValid()) {
-		    outputLogSQL("ETAT","EXEC","DENSE",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 			++progress;
 			continue;
 		}
@@ -597,7 +589,6 @@ bool MeshTexture::ListCameraFaces(FaceDataViewArr& facesDatas, float fOutlierThr
 		}
 		#endif
 		}
-		outputLogSQL("ETAT","EXEC","TEXTURATION",int(100.f*(float)progress.processed/(float)progress.total),progress.msg,false);
 		++progress;
 	}
 	#ifdef TEXOPT_USE_OPENMP
@@ -1087,11 +1078,7 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 
 				#if TEXOPT_INFERENCE == TEXOPT_INFERENCE_LBP
 				// initialize inference structures
-<<<<<<< HEAD
-				const LBPInference::EnergyType MaxEnergy(fRatioDataSmoothness*(LBPInference::EnergyType)LBPInference::MaxEnergy);
-=======
 				const LBPInference::EnergyType MaxEnergy(fRatioDataSmoothness*LBPMaxEnergy);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				LBPInference inference; {
 					inference.SetNumNodes(virtualFaces.size());
 					inference.SetSmoothCost(SmoothnessPotts);
@@ -1188,11 +1175,7 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 
 				#if TEXOPT_INFERENCE == TEXOPT_INFERENCE_LBP
 				// initialize inference structures
-<<<<<<< HEAD
-				const LBPInference::EnergyType MaxEnergy(fRatioDataSmoothness*(LBPInference::EnergyType)LBPInference::MaxEnergy);
-=======
 				const LBPInference::EnergyType MaxEnergy(fRatioDataSmoothness*LBPMaxEnergy);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				LBPInference inference; {
 					inference.SetNumNodes(faces.size());
 					inference.SetSmoothCost(SmoothnessPotts);
@@ -1201,12 +1184,6 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 						for (boost::tie(ei, eie) = boost::out_edges(f, graph); ei != eie; ++ei) {
 							ASSERT(f == (FIndex)ei->m_source);
 							const FIndex fAdj((FIndex)ei->m_target);
-<<<<<<< HEAD
-							//ASSERT(components.empty() || components[f] == components[fAdj]);
-                            if(! components.empty() && components[f] != components[fAdj])
-                                continue;
-=======
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 							if (f < fAdj) // add edges only once
 								inference.SetNeighbors(f, fAdj);
 						}
@@ -1242,95 +1219,6 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 						labels[l] = label-1;
 				}
 				#endif
-<<<<<<< HEAD
-
-				#if TEXOPT_INFERENCE == TEXOPT_INFERENCE_TRWS
-				// find connected components
-				ASSERT((FIndex)boost::num_vertices(graph) == faces.size());
-				components.resize(faces.size());
-				const FIndex nComponents(boost::connected_components(graph, components.data()));
-
-				// map face ID from global to component space
-				typedef cList<NodeID, NodeID, 0, 128, NodeID> NodeIDs;
-				NodeIDs nodeIDs(faces.size());
-				NodeIDs sizes(nComponents);
-				sizes.Memset(0);
-				FOREACH(c, components)
-					nodeIDs[c] = sizes[components[c]]++;
-
-				// initialize inference structures
-				const LabelID numLabels(images.size()+1);
-				CLISTDEFIDX(TRWSInference, FIndex) inferences(nComponents);
-				FOREACH(s, sizes) {
-					const NodeID numNodes(sizes[s]);
-					ASSERT(numNodes > 0);
-					if (numNodes <= 1)
-						continue;
-					TRWSInference& inference = inferences[s];
-					inference.Init(numNodes, numLabels);
-				}
-
-				// set data costs
-				{
-					// add nodes
-					CLISTDEF0(EnergyType) D(numLabels);
-					FOREACH(f, facesDatas) {
-						TRWSInference& inference = inferences[components[f]];
-						if (inference.IsEmpty())
-							continue;
-						D.MemsetValue(MaxEnergy);
-						const FaceDataArr& faceDatas = facesDatas[f];
-						for (const FaceData& faceData: faceDatas) {
-							const Label label((Label)faceData.idxView);
-							const float normalizedQuality(faceData.quality>=normQuality ? 1.f : faceData.quality/normQuality);
-							const EnergyType dataCost(MaxEnergy*(1.f-normalizedQuality));
-							D[label] = dataCost;
-						}
-						const NodeID nodeID(nodeIDs[f]);
-						inference.AddNode(nodeID, D.Begin());
-					}
-					// add edges
-					EdgeOutIter ei, eie;
-					FOREACH(f, faces) {
-						TRWSInference& inference = inferences[components[f]];
-						if (inference.IsEmpty())
-							continue;
-						for (boost::tie(ei, eie) = boost::out_edges(f, graph); ei != eie; ++ei) {
-							ASSERT(f == (FIndex)ei->m_source);
-							const FIndex fAdj((FIndex)ei->m_target);
-							ASSERT(components[f] == components[fAdj]);
-							if (f < fAdj) // add edges only once
-								inference.AddEdge(nodeIDs[f], nodeIDs[fAdj]);
-						}
-					}
-				}
-
-				// assign the optimal view (label) to each face
-				#ifdef TEXOPT_USE_OPENMP
-				#pragma omp parallel for schedule(dynamic)
-				for (int i=0; i<(int)inferences.size(); ++i) {
-				#else
-				FOREACH(i, inferences) {
-				#endif
-					TRWSInference& inference = inferences[i];
-					if (inference.IsEmpty())
-						continue;
-					inference.Optimize();
-				}
-				// extract resulting labeling
-				labels.Memset(0xFF);
-				FOREACH(l, labels) {
-					TRWSInference& inference = inferences[components[l]];
-					if (inference.IsEmpty())
-						continue;
-					const Label label(inference.GetLabel(nodeIDs[l]));
-					ASSERT(label >= 0 && label < numLabels);
-					if (label < images.size())
-						labels[l] = label;
-				}
-				#endif
-=======
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			}
 		}
 
@@ -1342,12 +1230,6 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 			for (boost::tie(ei, eie) = boost::edges(graph); ei != eie; ++ei) {
 				const FIndex fSource((FIndex)ei->m_source);
 				const FIndex fTarget((FIndex)ei->m_target);
-<<<<<<< HEAD
-				//ASSERT(components[fSource] == components[fTarget]);
-				if(components[fSource] != components[fTarget])
-    				continue ;
-=======
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				ASSERT(components.empty() || components[fSource] == components[fTarget]);
 				if (labels[fSource] != labels[fTarget])
 					seamEdges.emplace_back(fSource, fTarget);
@@ -1372,12 +1254,6 @@ bool MeshTexture::FaceViewSelection(unsigned minCommonCameras, float fOutlierThr
 				const Label label(labels[f]);
 				const FIndex c(components[f]);
 				TexturePatch& texturePatch = texturePatches[c];
-<<<<<<< HEAD
-				//ASSERT(texturePatch.label == label || texturePatch.faces.IsEmpty());
-				if (texturePatch.label != label && ! texturePatch.faces.IsEmpty())
-				    continue;
-=======
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				ASSERT(texturePatch.label == label || texturePatch.faces.empty());
 				if (label == NO_ID) {
 					texturePatch.label = NO_ID;
@@ -1431,9 +1307,7 @@ void MeshTexture::CreateSeamVertices()
 		ASSERT(edge.i < edge.j);
 		const uint32_t idxPatch0(mapIdxPatch[components[edge.i]]);
 		const uint32_t idxPatch1(mapIdxPatch[components[edge.j]]);
-		//ASSERT(idxPatch0 != idxPatch1 || idxPatch0 == numPatches);
-        if(idxPatch0 == idxPatch1 && idxPatch0 != numPatches)
-            continue;
+		ASSERT(idxPatch0 != idxPatch1 || idxPatch0 == numPatches);
 		if (idxPatch0 == idxPatch1)
 			continue;
 		seamVertices.ReserveExtra(2);
@@ -2338,11 +2212,7 @@ bool Scene::TextureMesh(unsigned nResolutionLevel, unsigned nMinResolution, unsi
 		TD_TIMER_STARTD();
 		if (!texture.FaceViewSelection(minCommonCameras, fOutlierThreshold, fRatioDataSmoothness, nIgnoreMaskLabel, views))
 			return false;
-<<<<<<< HEAD
-		DEBUG_EXTRA("Assigning the best view to each face completed: %u faces (%s)", mesh.faces.size(), TD_TIMER_GET_FMT().c_str());
-=======
 		DEBUG_EXTRA("Assigning the best view to each face completed: %u faces, %u patches (%s)", mesh.faces.size(), texture.texturePatches.size(), TD_TIMER_GET_FMT().c_str());
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	}
 
 	// generate the texture image and atlas

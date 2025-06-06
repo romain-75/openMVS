@@ -326,11 +326,7 @@ size_t MVS::DepthData::GetMemorySize() const
 // the mask for each image is stored in the MVS scene or next to each image with '.mask.png' extension;
 // the mask marks as false (or 0) pixels that should be ignored
 //  - pMask: optional output mask; if defined, the mask is returned in this image instead of the BitMatrix
-<<<<<<< HEAD
-bool DepthEstimator::ImportIgnoreMask(const Image& image0, const Image8U::Size& size, uint16_t nIgnoreMaskLabel, BitMatrix& bmask, Image8U* pMask)
-=======
 bool DepthEstimator::ImportIgnoreMask(const Image& image0, const cv::Size& size, uint8_t nIgnoreMaskLabel, BitMatrix& bmask, Image8U* pMask)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 {
 	ASSERT(image0.IsValid());
 	Image8U& mask = const_cast<Image8U&>(image0.mask);

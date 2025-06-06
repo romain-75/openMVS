@@ -508,26 +508,16 @@ public:
 
 	uint32_t getLastModified() {
 		ASSERT(isOpen());
-<<<<<<< HEAD
-		struct stat s;
-		if (::fstat(h, &s) == -1)
-=======
 		struct STATS s;
 		if (::FSTAT(h, &s) == -1)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			return 0;
 		return (uint32_t)s.st_mtime;
 	}
 
 	size_f_t getSize() const override {
 		ASSERT(isOpen());
-<<<<<<< HEAD
-		struct stat s;
-		if (::fstat(h, &s) == -1)
-=======
 		struct STATS s;
 		if (::FSTAT(h, &s) == -1)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			return SIZE_NA;
 		return (size_f_t)s.st_size;
 	}
@@ -607,13 +597,8 @@ public:
 	}
 
 	static size_f_t getSize(LPCTSTR aFileName) {
-<<<<<<< HEAD
-		struct stat buf;
-		if (stat(aFileName, &buf) != 0)
-=======
 		struct STATS buf;
 		if (STATS(aFileName, &buf) != 0)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			return SIZE_NA;
 		return buf.st_size;
 	}
@@ -652,35 +637,20 @@ public:
 
 	// time the file was originally created
 	static time_t getCreated(LPCTSTR path) {
-<<<<<<< HEAD
-		struct stat buf;
-		if (stat(path, &buf) != 0) return 0;
-=======
 		struct STATS buf;
 		if (STATS(path, &buf) != 0) return 0;
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		return buf.st_ctime;
 	}
 	// time the file was last modified
 	static time_t getModified(LPCTSTR path) {
-<<<<<<< HEAD
-		struct stat buf;
-		if (stat(path, &buf) != 0) return 0;
-=======
 		struct STATS buf;
 		if (STATS(path, &buf) != 0) return 0;
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		return buf.st_mtime;
 	}
 	// time the file was accessed
 	static time_t getAccessed(LPCTSTR path) {
-<<<<<<< HEAD
-		struct stat buf;
-		if (stat(path, &buf) != 0) return 0;
-=======
 		struct STATS buf;
 		if (STATS(path, &buf) != 0) return 0;
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		return buf.st_atime;
 	}
 

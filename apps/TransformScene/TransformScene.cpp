@@ -47,27 +47,6 @@ using namespace MVS;
 namespace {
 
 namespace OPT {
-<<<<<<< HEAD
-	String strInputFileName;
-	String strPointCloudFileName;
-	String strMeshFileName;
-	String strOutputFileName;
-	String strAlignFileName;
-	String strTransformFileName;
-	String strTransferTextureFileName;
-	String strIndicesFileName;
-	bool bComputeVolume;
-	float fPlaneThreshold;
-	float fSampleMesh;
-	unsigned nMaxResolution;
-	unsigned nUpAxis;
-	unsigned nArchiveType;
-	int nProcessPriority;
-	unsigned nMaxThreads;
-	String strExportType;
-	String strConfigFileName;
-	boost::program_options::variables_map vm;
-=======
 String strInputFileName;
 String strPointCloudFileName;
 String strMeshFileName;
@@ -90,7 +69,6 @@ unsigned nMaxThreads;
 String strExportType;
 String strConfigFileName;
 boost::program_options::variables_map vm;
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 } // namespace OPT
 
 class Application {
@@ -147,12 +125,8 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 		("plane-threshold", boost::program_options::value(&OPT::fPlaneThreshold)->default_value(0.f), "threshold used to estimate the ground plane (<0 - disabled, 0 - auto, >0 - desired threshold)")
 		("sample-mesh", boost::program_options::value(&OPT::fSampleMesh)->default_value(-300000.f), "uniformly samples points on a mesh (0 - disabled, <0 - number of points, >0 - sample density per square unit)")
 		("max-resolution", boost::program_options::value(&OPT::nMaxResolution)->default_value(0), "make sure image resolution are not not larger than this (0 - disabled)")
-<<<<<<< HEAD
-		("up-axis", boost::program_options::value(&OPT::nUpAxis)->default_value(2), "scene axis considered to point upwards (0 - x, 1 - y, 2 - z)")
-=======
 		("up-axis", boost::program_options::value(&OPT::nUpAxis)->default_value(2), "scene axis considered to point upwards when computing the volume (0 - x, 1 - y, 2 - z)")
 		("normalize-coordinates", boost::program_options::value(&OPT::nNormalizeCoordinates)->default_value(0), "normalize scene coordinates and output the inverse transform to file (0 - disabled, 1 - center, 2 - center & scale, 3 - invert internal transform)")
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		;
 
 	boost::program_options::options_description cmdline_options;
@@ -196,11 +170,7 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 	Util::ensureValidPath(OPT::strIndicesFileName);
 	const String strInputFileNameExt(Util::getFileExt(OPT::strInputFileName).ToLower());
 	const bool bInvalidCommand(OPT::strInputFileName.empty() ||
-<<<<<<< HEAD
-		(OPT::strAlignFileName.empty() && OPT::strTransformFileName.empty() && OPT::strTransferTextureFileName.empty() && !OPT::bComputeVolume));
-=======
 		(OPT::strAlignFileName.empty() && OPT::strTransformFileName.empty() && OPT::strTransferTextureFileName.empty() && !OPT::bComputeVolume && OPT::nNormalizeCoordinates == 0));
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	if (OPT::vm.count("help") || bInvalidCommand) {
 		boost::program_options::options_description visible("Available options");
 		visible.add(generic).add(config);
@@ -224,11 +194,7 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 	Util::ensureValidPath(OPT::strPointCloudFileName);
 	Util::ensureValidPath(OPT::strMeshFileName);
 	Util::ensureValidPath(OPT::strOutputFileName);
-<<<<<<< HEAD
-	if (OPT::strMeshFileName.empty() && (ARCHIVE_TYPE)OPT::nArchiveType == ARCHIVE_MVS && strInputFileNameExt == MVS_EXT)
-=======
 	if (OPT::strMeshFileName.empty() && (ARCHIVE_TYPE)OPT::nArchiveType == ARCHIVE_MVS && strInputFileNameExt == MVS_EXT && OPT::nNormalizeCoordinates == 0)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		OPT::strMeshFileName = Util::getFileFullName(OPT::strInputFileName) + _T(".ply");
 	if (OPT::strOutputFileName.empty())
 		OPT::strOutputFileName = Util::getFileName(OPT::strInputFileName) + _T("_transformed") MVS_EXT;
@@ -269,15 +235,12 @@ int main(int argc, LPCTSTR* argv)
 		!OPT::strTransformFileName.empty() || !OPT::strTransferTextureFileName.empty() || OPT::bComputeVolume));
 	if (sceneType == Scene::SCENE_NA)
 		return EXIT_FAILURE;
-<<<<<<< HEAD
-=======
 	if (OPT::fEpsNoisePosition > 0 || OPT::fEpsNoiseRotation > 0) {
 		scene.pointcloud.Release();
 		scene.AddNoiseCameraPoses(OPT::fEpsNoisePosition, FD2R(OPT::fEpsNoiseRotation));
 		scene.Save(MAKE_PATH_SAFE(Util::getFileFullName(OPT::strOutputFileName)) + _T(".mvs"), (ARCHIVE_TYPE)OPT::nArchiveType);
 		return EXIT_SUCCESS;
 	}
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	if (!OPT::strPointCloudFileName.empty() && !scene.pointcloud.Load(MAKE_PATH_SAFE(OPT::strPointCloudFileName))) {
 		VERBOSE("error: cannot load point-cloud file");
 		return EXIT_FAILURE;
@@ -298,9 +261,6 @@ int main(int argc, LPCTSTR* argv)
 		VERBOSE("Scene aligned to the given reference scene (%s)", TD_TIMER_GET_FMT().c_str());
 	}
 
-<<<<<<< HEAD
-	if (!OPT::strTransformFileName.empty()) {
-=======
 	if (OPT::nNormalizeCoordinates > 0) {
 		// normalize scene coordinates and output transform to file
 		Matrix4x4 transform;
@@ -323,23 +283,12 @@ int main(int argc, LPCTSTR* argv)
 	}
 
 	if (!OPT::strTransformFileName.empty() && OPT::nNormalizeCoordinates == 0) {
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		// transform this scene by the given transform matrix
 		std::ifstream file(MAKE_PATH_SAFE(OPT::strTransformFileName));
 		std::string value;
 		std::vector<double> transformValues;
 		while (file >> value) {
 			double v;
-<<<<<<< HEAD
-                        try {
-                                v = std::stod(value);
-                        }
-                        catch (...) {
-                                continue;
-                        }
-                        transformValues.push_back(v);
-                }
-=======
 			try {
 				v = std::stod(value);
 			}
@@ -348,7 +297,6 @@ int main(int argc, LPCTSTR* argv)
 			}
 			transformValues.push_back(v);
 		}
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		if (transformValues.size() != 12 &&
 			(transformValues.size() != 16 || transformValues[12] != 0 || transformValues[13] != 0 || transformValues[14] != 0 || transformValues[15] != 1)) {
 			VERBOSE("error: invalid transform");
@@ -401,16 +349,6 @@ int main(int argc, LPCTSTR* argv)
 	}
 
 	// write transformed scene
-<<<<<<< HEAD
-	if (scene.IsValid())
-		scene.Save(MAKE_PATH_SAFE(OPT::strOutputFileName), (ARCHIVE_TYPE)OPT::nArchiveType);
-	if (!scene.IsValid() || (ARCHIVE_TYPE)OPT::nArchiveType == ARCHIVE_MVS) {
-		if (!scene.pointcloud.IsEmpty())
-			scene.pointcloud.Save(baseFileName + _T(".ply"), (ARCHIVE_TYPE)OPT::nArchiveType == ARCHIVE_MVS);
-		if (!scene.mesh.IsEmpty())
-			scene.mesh.Save(baseFileName + OPT::strExportType);
-	}
-=======
 	if (!scene.pointcloud.IsEmpty() && !scene.IsValid()) {
 		scene.pointcloud.Save(baseFileName + (scene.mesh.IsEmpty() ? _T(".ply") : _T("_pointcloud.ply")), (ARCHIVE_TYPE)OPT::nArchiveType == ARCHIVE_MVS);
 	}
@@ -420,7 +358,6 @@ int main(int argc, LPCTSTR* argv)
 	}
 	if (scene.IsValid())
 		scene.Save(MAKE_PATH_SAFE(OPT::strOutputFileName), (ARCHIVE_TYPE)OPT::nArchiveType);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	return EXIT_SUCCESS;
 }
 /*----------------------------------------------------------------*/

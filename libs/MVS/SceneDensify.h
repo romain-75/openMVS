@@ -61,18 +61,14 @@ public:
 	bool InitViews(DepthData& depthData, IIndex idxNeighbor, IIndex numNeighbors, bool loadImages, int loadDepthMaps);
 	bool InitDepthMap(DepthData& depthData);
 	bool EstimateDepthMap(IIndex idxImage, int nGeometricIter);
-
+	
 	bool RemoveSmallSegments(DepthData& depthData);
 	bool GapInterpolation(DepthData& depthData);
-
-<<<<<<< HEAD
-	bool FilterDepthMap(DepthData& depthData, const IIndexArr& idxNeighbors, bool bAdjust=true, double profondeurMaximale=-1.0, double hauteurMaximale = -1.0);
-=======
+	
 	void EstimateNormalMaps();
-
-	bool AdjustConfidenceFast(DepthData& depthData, const IIndexArr& idxNeighbors);
-	bool AdjustConfidence(DepthData& depthDataRef, const IIndexArr& idxNeighbors);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
+	
+	bool AdjustConfidenceFast(DepthData& depthData, const IIndexArr& idxNeighbors, double profondeurMaximale, double hauteurMaximale);
+	bool AdjustConfidence(DepthData& depthDataRef, const IIndexArr& idxNeighbors, double profondeurMaximale, double hauteurMaximale);
 	void MergeDepthMaps(PointCloud& pointcloud, bool bEstimateColor, bool bEstimateNormal);
 	void FuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, bool bEstimateNormal);
 	void DenseFuseDepthMaps(PointCloud& pointcloud, bool bEstimateColor, bool bEstimateNormal);

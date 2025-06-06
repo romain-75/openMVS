@@ -151,13 +151,8 @@ public:
 	void ReleaseExtra();
 	void ReleaseComputable();
 	void EmptyExtra();
-<<<<<<< HEAD
-	void Swap(Mesh&);
-	void Join(const Mesh&);
-=======
 	Mesh& Swap(Mesh&);
 	Mesh& Join(const Mesh&);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	bool IsEmpty() const { return vertices.empty(); }
 	bool IsWatertight();
 	bool HasTexture() const { return HasTextureCoordinates() && !texturesDiffuse.empty(); }
@@ -185,11 +180,7 @@ public:
 	void GetAdjVertices(VIndex, VertexIdxArr&) const;
 	void GetAdjVertexFaces(VIndex, VIndex, FaceIdxArr&) const;
 
-<<<<<<< HEAD
-	unsigned FixNonManifold(float magDisplacementDuplicateVertices = 0.01f, VertexIdxArr* duplicatedVertices = NULL);
-=======
 	unsigned FixNonManifold(float magDisplacementDuplicateVertices=0.01f, VertexIdxArr* duplicatedVertices=NULL);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	void Clean(float fDecimate=0.7f, float fSpurious=10.f, bool bRemoveSpikes=true, unsigned nCloseHoles=30, unsigned nSmoothMesh=2, float fEdgeLength=0, bool bLastClean=true);
 
 	void EnsureEdgeSize(float minEdge=-0.5f, float maxEdge=-4.f, float collapseRatio=0.2, float degenerate_angle_deg=150, int mode=1, int max_iters=50);

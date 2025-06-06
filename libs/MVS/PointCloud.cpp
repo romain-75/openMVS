@@ -247,18 +247,11 @@ namespace BasicPLY {
 			uint32_t* pIndices;
 			float* pWeights;
 		} views;
-<<<<<<< HEAD
-		float confidence;
-		float scale;
-		static void InitLoadProps(PLY& ply, int elem_count,
-			PointCloud::PointArr& points, PointCloud::ColorArr& colors, PointCloud::NormalArr& normals, PointCloud::PointViewArr& views, PointCloud::PointWeightArr& weights)
-=======
 		PointCloud::Label label;
 		float confidence;
 		float scale;
 		static void InitLoadProps(PLY& ply, int elem_count,
 			PointCloud::PointArr& points, PointCloud::ColorArr& colors, PointCloud::NormalArr& normals, PointCloud::LabelArr& labels, PointCloud::PointViewArr& views, PointCloud::PointWeightArr& weights)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		{
 			PLY::PlyElement* elm = ply.find_element(elem_names[0]);
 			const size_t nMaxProps(SizeOfArray(props));
@@ -272,19 +265,12 @@ namespace BasicPLY {
 				case 6: normals.resize((IDX)elem_count); break;
 				case 9: views.resize((IDX)elem_count); break;
 				case 10: weights.resize((IDX)elem_count); break;
-<<<<<<< HEAD
-=======
 				case 11: labels.resize((IDX)elem_count); break;
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				}
 			}
 		}
 		static void InitSaveProps(PLY& ply, int elem_count,
-<<<<<<< HEAD
-			bool bColors, bool bNormals, bool bViews, bool bWeights, bool bConfidence=false, bool bScale=false)
-=======
 			bool bColors, bool bNormals, bool bViews, bool bWeights, bool bLabel=false, bool bConfidence=false, bool bScale=false)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		{
 			ply.describe_property(elem_names[0], 3, props+0);
 			if (bColors)
@@ -295,18 +281,6 @@ namespace BasicPLY {
 				ply.describe_property(elem_names[0], props[9]);
 			if (bWeights)
 				ply.describe_property(elem_names[0], props[10]);
-<<<<<<< HEAD
-			if (bConfidence)
-				ply.describe_property(elem_names[0], props[11]);
-			if (bScale)
-				ply.describe_property(elem_names[0], props[12]);
-			if (elem_count)
-				ply.element_count(elem_names[0], elem_count);
-		}
-		static const PLY::PlyProperty props[16];
-	};
-	const PLY::PlyProperty Vertex::props[16] = {
-=======
 			if (bLabel)
 				ply.describe_property(elem_names[0], props[11]);
 			if (bConfidence)
@@ -319,7 +293,6 @@ namespace BasicPLY {
 		static const PLY::PlyProperty props[17];
 	};
 	const PLY::PlyProperty Vertex::props[17] = {
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		{"x",             PLY::Float32, PLY::Float32, offsetof(Vertex,p.x), 0, 0, 0, 0},
 		{"y",             PLY::Float32, PLY::Float32, offsetof(Vertex,p.y), 0, 0, 0, 0},
 		{"z",             PLY::Float32, PLY::Float32, offsetof(Vertex,p.z), 0, 0, 0, 0},
@@ -331,10 +304,7 @@ namespace BasicPLY {
 		{"nz",            PLY::Float32, PLY::Float32, offsetof(Vertex,n.z), 0, 0, 0, 0},
 		{"view_indices",  PLY::Uint32,  PLY::Uint32,  offsetof(Vertex,views.pIndices), 1, PLY::Uint8, PLY::Uint8, offsetof(Vertex,views.num)},
 		{"view_weights",  PLY::Float32, PLY::Float32, offsetof(Vertex,views.pWeights), 1, PLY::Uint8, PLY::Uint8, offsetof(Vertex,views.num)},
-<<<<<<< HEAD
-=======
 		{"label",         PLY::Uint8,   PLY::Uint8,   offsetof(Vertex,label), 0, 0, 0, 0},
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		{"confidence",    PLY::Float32, PLY::Float32, offsetof(Vertex,confidence), 0, 0, 0, 0},
 		{"value",         PLY::Float32, PLY::Float32, offsetof(Vertex,scale), 0, 0, 0, 0},
 		// duplicates
@@ -366,11 +336,7 @@ bool PointCloud::Load(const String& fileName)
 		int elem_count;
 		LPCSTR elem_name = ply.setup_element_read(i, &elem_count);
 		if (PLY::equal_strings(BasicPLY::elem_names[0], elem_name)) {
-<<<<<<< HEAD
-			BasicPLY::Vertex::InitLoadProps(ply, elem_count, points, colors, normals, pointViews, pointWeights);
-=======
 			BasicPLY::Vertex::InitLoadProps(ply, elem_count, points, colors, normals, labels, pointViews, pointWeights);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			BasicPLY::Vertex vertex;
 			for (int v=0; v<elem_count; ++v) {
 				ply.get_element(&vertex);
@@ -379,11 +345,8 @@ bool PointCloud::Load(const String& fileName)
 					colors[v] = vertex.c;
 				if (!normals.empty())
 					normals[v] = vertex.n;
-<<<<<<< HEAD
-=======
 				if (!labels.empty())
 					labels[v] = vertex.label;
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 				if (!pointViews.empty()) {
 					ViewArr pv(vertex.views.num, vertex.views.pIndices);
 					pointViews[v].CopyOfRemove(pv);
@@ -406,17 +369,10 @@ bool PointCloud::Load(const String& fileName)
 	return true;
 } // Load
 
-<<<<<<< HEAD
-// save the dense point cloud as PLY file
-bool PointCloud::Save(const String& fileName, bool bViews, bool bLegacyTypes, bool bBinary) const
-{
-	if (points.empty())
-=======
 // save the dense point-cloud as PLY file
 bool PointCloud::Save(const String& fileName, bool bViews, bool bLegacyTypes, bool bBinary) const
 {
 	if (IsEmpty())
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		return false;
 	TD_TIMER_STARTD();
 
@@ -432,11 +388,7 @@ bool PointCloud::Save(const String& fileName, bool bViews, bool bLegacyTypes, bo
 
 	// write the header
 	BasicPLY::Vertex::InitSaveProps(ply, (int)points.size(), !colors.empty(), !normals.empty(),
-<<<<<<< HEAD
-		bViews && !pointViews.empty(), bViews && !pointWeights.empty());
-=======
 		bViews && !pointViews.empty(), bViews && !pointWeights.empty(), bViews && !labels.empty());
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	if (!ply.header_complete())
 		return false;
 
@@ -449,11 +401,8 @@ bool PointCloud::Save(const String& fileName, bool bViews, bool bLegacyTypes, bo
 			vertex.c = colors[i];
 		if (!normals.empty())
 			vertex.n = normals[i];
-<<<<<<< HEAD
-=======
 		if (!labels.empty())
 			vertex.label = labels[i];
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		if (!pointViews.empty()) {
 			vertex.views.num = pointViews[i].size();
 			vertex.views.pIndices = pointViews[i].data();
@@ -545,11 +494,7 @@ bool PointCloud::SaveWithScale(const String& fileName, const ImageArr& images, f
 		return false;
 
 	// export the array of 3D points
-<<<<<<< HEAD
-	BasicPLY::Vertex::InitSaveProps(ply, (int)points.size(), !colors.empty(), !normals.empty(), false, false, true, true);
-=======
 	BasicPLY::Vertex::InitSaveProps(ply, (int)points.size(), !colors.empty(), !normals.empty(), false, false, false, true, true);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	if (!ply.header_complete())
 		return false;
 	BasicPLY::Vertex vertex;
@@ -609,11 +554,7 @@ bool PointCloud::SaveWithScale(const String& fileName, const ImageArr& images, f
 /*----------------------------------------------------------------*/
 
 
-<<<<<<< HEAD
-// print various statistics about the point cloud
-=======
 // print various statistics about the point-cloud
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 void PointCloud::PrintStatistics(const Image* pImages, const OBB3f* pObb) const
 {
 	String strPoints;

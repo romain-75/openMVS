@@ -147,10 +147,7 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 	config.add_options()
 		("input-file,i", boost::program_options::value<std::string>(&OPT::strInputFileName), "input filename containing camera poses and image list")
 		("pointcloud-file,p", boost::program_options::value<std::string>(&OPT::strPointCloudFileName), "sparse point-cloud with views file name to densify (overwrite existing point-cloud)")
-<<<<<<< HEAD
-=======
 		("mask-path,m", boost::program_options::value<std::string>(&OPT::strMaskPath), "path to folder containing mask images with '.mask.png' extension")
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		("output-file,o", boost::program_options::value<std::string>(&OPT::strOutputFileName), "output filename for storing the dense point-cloud (optional)")
 		("view-neighbors-file", boost::program_options::value<std::string>(&OPT::strViewNeighborsFileName), "input filename containing the list of views and their neighbors (optional)")
 		("output-view-neighbors-file", boost::program_options::value<std::string>(&OPT::strOutputViewNeighborsFileName), "output filename containing the generated list of views and their neighbors")
@@ -159,14 +156,8 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 		("min-resolution", boost::program_options::value(&nMinResolution)->default_value(640), "do not scale images lower than this resolution")
 		("sub-resolution-levels", boost::program_options::value(&nSubResolutionLevels)->default_value(2), "number of patch-match sub-resolution iterations (0 - disabled)")
 		("number-views", boost::program_options::value(&nNumViews)->default_value(nNumViewsDefault), "number of views used for depth-map estimation (0 - all neighbor views available)")
-<<<<<<< HEAD
-		("number-views-fuse", boost::program_options::value(&nMinViewsFuse)->default_value(3), "minimum number of images that agrees with an estimate during fusion in order to consider it inlier (<2 - only merge depth-maps)")
-		("ignore-mask-label", boost::program_options::value(&nIgnoreMaskLabel)->default_value(-1), "label value to ignore in the image mask, stored in the MVS scene or next to each image with '.mask.png' extension (<0 - disabled)")
-		("mask-path", boost::program_options::value<std::string>(&OPT::strMaskPath), "path to folder containing mask images with '.mask.png' extension")
-=======
 		("number-views-fuse", boost::program_options::value(&nMinViewsFuse)->default_value(2), "minimum number of images that agrees with an estimate during fusion in order to consider it inlier (<2 - only merge depth-maps)")
 		("ignore-mask-label", boost::program_options::value(&nIgnoreMaskLabel)->default_value(-1), "label value to ignore in the image mask, stored in the MVS scene or next to each image with '.mask.png' extension (<0 - disabled)")
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		("iters", boost::program_options::value(&nEstimationIters)->default_value(numIters), "number of patch-match iterations")
 		("geometric-iters", boost::program_options::value(&nEstimationGeometricIters)->default_value(2), "number of geometric consistent patch-match iterations (0 - disabled)")
 		("estimate-colors", boost::program_options::value(&nEstimateColors)->default_value(2), "estimate the colors for the dense point-cloud (0 - disabled, 1 - final, 2 - estimate)")
@@ -180,27 +171,18 @@ bool Application::Initialize(size_t argc, LPCTSTR* argv)
 		("postprocess-dmaps", boost::program_options::value(&nOptimize)->default_value(0), "flags used to filter the depth-maps after estimation (0 - disabled, 1 - remove-speckles, 2 - fill-gaps, 4 - adjust-confidence)")
 		("filter-point-cloud", boost::program_options::value(&OPT::thFilterPointCloud)->default_value(0), "filter dense point-cloud based on visibility (0 - disabled)")
 		("export-number-views", boost::program_options::value(&OPT::nExportNumViews)->default_value(0), "export points with >= number of views (0 - disabled, <0 - save MVS project too)")
-<<<<<<< HEAD
-        ("roi-border", boost::program_options::value(&OPT::fBorderROI)->default_value(0), "add a border to the region-of-interest when cropping the scene (0 - disabled, >0 - percentage, <0 - absolute)")
-        ("estimate-roi", boost::program_options::value(&OPT::nEstimateROI)->default_value(2), "estimate and set region-of-interest (0 - disabled, 1 - enabled, 2 - adaptive)")
-        ("crop-to-roi", boost::program_options::value(&OPT::bCrop2ROI)->default_value(true), "crop scene using the region-of-interest")
-        ("remove-dmaps", boost::program_options::value(&bRemoveDmaps)->default_value(false), "remove depth-maps after fusion")
-        ("indexPremiereImage", boost::program_options::value(&OPT::indexPremiereImage)->default_value(-1), "index de la premiere image traitee (-1 - disabled)")
-        ("indexDerniereImage", boost::program_options::value(&OPT::indexDerniereImage)->default_value(-1), "index de de derniere image traitee (-1 - disabled)")
-        ("profondeurMaximale", boost::program_options::value(&OPT::profondeurMaximale)->default_value(-1.0), "profondeur maximale (-1 - disabled)")
-        ("hauteurMaximale", boost::program_options::value(&OPT::hauteurMaximale)->default_value(-1.0), "hauteur maximale (-1 - disabled)")
-        ("nbIterationsGeometrique", boost::program_options::value(&nEstimationGeometricIters)->default_value(2), "nb iterations géométrique (0 - disabled)")
-		("tower-mode", boost::program_options::value(&OPT::nTowerMode)->default_value(4), "add a cylinder of points in the center of ROI; scene assume to be Z-up oriented (0 - disabled, 1 - replace, 2 - append, 3 - select neighbors, 4 - select neighbors & append, <0 - force tower mode)")
-        ;
-=======
 		("roi-border", boost::program_options::value(&OPT::fBorderROI)->default_value(0), "add a border to the region-of-interest when cropping the scene (0 - disabled, >0 - percentage, <0 - absolute)")
 		("estimate-roi", boost::program_options::value(&OPT::nEstimateROI)->default_value(2), "estimate and set region-of-interest (0 - disabled, 1 - enabled, 2 - adaptive)")
 		("crop-to-roi", boost::program_options::value(&OPT::bCrop2ROI)->default_value(true), "crop scene using the region-of-interest")
 		("remove-dmaps", boost::program_options::value(&bRemoveDmaps)->default_value(false), "remove depth-maps after fusion")
 		("tower-mode", boost::program_options::value(&OPT::nTowerMode)->default_value(4), "add a cylinder of points in the center of ROI; scene assume to be Z-up oriented (0 - disabled, 1 - replace, 2 - append, 3 - select neighbors, 4 - select neighbors & append, <0 - force tower mode)")
 		("normalize-coordinates", boost::program_options::value(&OPT::nNormalizeCoordinates)->default_value(0), "normalize scene coordinates and output the inverse transform to file (0 - disabled, 1 - center, 2 - center & scale)")
+		("indexPremiereImage", boost::program_options::value(&OPT::indexPremiereImage)->default_value(-1), "index de la premiere image traitee (-1 - disabled)")
+        ("indexDerniereImage", boost::program_options::value(&OPT::indexDerniereImage)->default_value(-1), "index de de derniere image traitee (-1 - disabled)")
+        ("profondeurMaximale", boost::program_options::value(&OPT::profondeurMaximale)->default_value(-1.0), "profondeur maximale (-1 - disabled)")
+        ("hauteurMaximale", boost::program_options::value(&OPT::hauteurMaximale)->default_value(-1.0), "hauteur maximale (-1 - disabled)")
+        ("nbIterationsGeometrique", boost::program_options::value(&nEstimationGeometricIters)->default_value(2), "nb iterations géométrique (0 - disabled)")
 		;
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 
 	// hidden options, allowed both on command line and
 	// in config file, but will not be shown to the user
@@ -339,8 +321,6 @@ int main(int argc, LPCTSTR* argv)
 	const Scene::SCENE_TYPE sceneType(scene.Load(MAKE_PATH_SAFE(OPT::strInputFileName)));
 	if (sceneType == Scene::SCENE_NA)
 		return EXIT_FAILURE;
-<<<<<<< HEAD
-=======
 	if (!OPT::strExportDMAPSPathName.empty() && scene.IsValid()) {
 		// export depth-maps as PNG images
 		Util::ensureValidFolderPath(OPT::strExportDMAPSPathName);
@@ -369,7 +349,6 @@ int main(int argc, LPCTSTR* argv)
 		}
 		return EXIT_SUCCESS;
 	}
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	if (!OPT::strPointCloudFileName.empty() && !scene.pointcloud.Load(MAKE_PATH_SAFE(OPT::strPointCloudFileName))) {
 		VERBOSE("error: cannot load point-cloud file");
 		return EXIT_FAILURE;
@@ -388,14 +367,6 @@ int main(int argc, LPCTSTR* argv)
 			}
 		}
 	}
-<<<<<<< HEAD
-	if (!OPT::strImportROIFileName.empty()) {
-		std::ifstream fs(MAKE_PATH_SAFE(OPT::strImportROIFileName));
-		if (!fs)
-			return EXIT_FAILURE;
-		fs >> scene.obb;
-		scene.Save(MAKE_PATH_SAFE(Util::getFileFullName(OPT::strOutputFileName))+_T(".mvs"), (ARCHIVE_TYPE)OPT::nArchiveType);
-=======
 	if (!OPT::strCropROIFileName.empty()) {
 		if (!scene.LoadROI(MAKE_PATH_SAFE(OPT::strCropROIFileName))) {
 			VERBOSE("error: cannot load ROI file");
@@ -410,7 +381,6 @@ int main(int argc, LPCTSTR* argv)
 			// save the cropped scene
 			scene.Save(baseFileName+_T(".mvs"), (ARCHIVE_TYPE)OPT::nArchiveType);
 		}
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		return EXIT_SUCCESS;
 	}
 	if (!OPT::strImportROIFileName.empty()) {
@@ -497,10 +467,6 @@ int main(int argc, LPCTSTR* argv)
 		scene.pointcloud.SaveWithScale(baseFileName+_T("_scale.ply"), scene.images, OPT::fEstimateScale);
 		return EXIT_SUCCESS;
 	}
-<<<<<<< HEAD
-	PointCloud sparsePointCloud;
-	if ((ARCHIVE_TYPE)OPT::nArchiveType != ARCHIVE_MVS || sceneType == Scene::SCENE_INTERFACE) {
-=======
 	if (OPT::nNormalizeCoordinates > 0) {
 		// normalize scene coordinates
 		const Matrix4x4 normalizeTransform = scene.ComputeNormalizationTransform(OPT::nNormalizeCoordinates == 2).inv();
@@ -510,7 +476,6 @@ int main(int argc, LPCTSTR* argv)
 	PointCloud sparsePointCloud;
 	if (OPT::nEstimateSegmentation >= 0 && ((ARCHIVE_TYPE)OPT::nArchiveType != ARCHIVE_MVS || sceneType == Scene::SCENE_INTERFACE)) {
 		// estimate depth-maps and densify the point-cloud
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		#if TD_VERBOSE != TD_VERBOSE_OFF
 		if (VERBOSITY_LEVEL > 1 && !scene.pointcloud.IsEmpty())
 			scene.pointcloud.PrintStatistics(scene.images.data(), &scene.obb);
@@ -518,7 +483,7 @@ int main(int argc, LPCTSTR* argv)
 		if ((ARCHIVE_TYPE)OPT::nArchiveType == ARCHIVE_MVS)
 			sparsePointCloud = scene.pointcloud;
 		TD_TIMER_START();
-        if (!scene.DenseReconstruction(OPT::nFusionMode, OPT::bCrop2ROI, OPT::fBorderROI,OPT::indexPremiereImage,OPT::indexDerniereImage, OPT::profondeurMaximale, OPT::hauteurMaximale)) {
+		if (!scene.DenseReconstruction(OPT::nFusionMode, OPT::bCrop2ROI, OPT::fBorderROI,OPT::indexPremiereImage,OPT::indexDerniereImage, OPT::profondeurMaximale, OPT::hauteurMaximale)) {
 			if (ABS(OPT::nFusionMode) != 1)
 				return EXIT_FAILURE;
 			VERBOSE("Depth-maps estimated (%s)", TD_TIMER_GET_FMT().c_str());
@@ -544,8 +509,6 @@ int main(int argc, LPCTSTR* argv)
 	if ((ARCHIVE_TYPE)OPT::nArchiveType == ARCHIVE_MVS)
 		scene.pointcloud.Swap(sparsePointCloud);
 	scene.Save(baseFileName+_T(".mvs"), (ARCHIVE_TYPE)OPT::nArchiveType);
-<<<<<<< HEAD
-=======
 	#if TD_VERBOSE != TD_VERBOSE_OFF
 	if ((ARCHIVE_TYPE)OPT::nArchiveType == ARCHIVE_MVS)
 		scene.pointcloud.Swap(sparsePointCloud);
@@ -556,7 +519,6 @@ int main(int argc, LPCTSTR* argv)
 		scene.pointcloud.Save(baseFileName+_T("_labels.ply"));
 	}
 	#endif
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	return EXIT_SUCCESS;
 }
 /*----------------------------------------------------------------*/

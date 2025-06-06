@@ -96,15 +96,12 @@ bool Scene::LoadInterface(const String & fileName)
 			Platform::Camera& camera = platform.cameras.emplace_back();
 			camera.K = itCamera.K;
 			camera.R = itCamera.R;
-			//std::cout << "camera.R : " << camera.R << std::endl;
 			camera.C = itCamera.C;
-			//std::cout << "camera.C : " << camera.C << std::endl;
 			if (!itCamera.IsNormalized()) {
 				// normalize K
 				ASSERT(itCamera.HasResolution());
 				camera.K = camera.GetScaledK(REAL(1)/Camera::GetNormalizationScale(itCamera.width, itCamera.height));
 			}
-			//std::cout << "camera.K : " << camera.K << std::endl;
 			DEBUG_EXTRA("Camera model loaded: platform %u; camera %2u; f %.3fx%.3f; poses %u", platforms.size()-1, platform.cameras.size()-1, camera.K(0,0), camera.K(1,1), itPlatform.poses.size());
 		}
 		ASSERT(platform.cameras.size() == itPlatform.cameras.size());
@@ -113,8 +110,6 @@ bool Scene::LoadInterface(const String & fileName)
 			Platform::Pose& pose = platform.poses.emplace_back();
 			pose.R = itPose.R;
 			pose.C = itPose.C;
-			//std::cout << "pose.R : " << pose.R<< std::endl;
-			//std::cout << "pose.C : " << pose.C << std::endl;
 		}
 		ASSERT(platform.poses.size() == itPlatform.poses.size());
 	}
@@ -131,7 +126,6 @@ bool Scene::LoadInterface(const String & fileName)
 		const uint32_t ID(images.size());
 		Image& imageData = images.emplace_back();
 		imageData.ID = (image.ID == NO_ID ? ID : image.ID);
-		//std::cout << "image.ID : " << image.ID << std::endl;
 		imageData.name = image.name;
 		Util::ensureUnifySlash(imageData.name);
 		imageData.name = MAKE_PATH_FULL(WORKING_FOLDER_FULL, imageData.name);
@@ -488,11 +482,7 @@ bool Scene::LoadViewNeighbors(const String& fileName)
 		FOREACH(i, imageData.neighbors) {
 			const IIndex nID(String::FromString<IIndex>(argv[i+1], NO_ID));
 			ASSERT(nID != NO_ID);
-<<<<<<< HEAD
-			imageData.neighbors[i] = ViewScore{nID, 0, 1.f, FD2R(15.f), 0.5f, 3.f};
-=======
 			imageData.neighbors[i] = ViewScore{nID, 0, 1.f, FD2R(15.f), 0.5f, 2.f+(argc-i)*0.5f};
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		}
 	}
 
@@ -879,11 +869,9 @@ bool Scene::SelectNeighborViews(uint32_t ID, IndexArr& points, unsigned nMinView
 			wROI = 0.7f;
 		}
 		const Depth depth((float)imageData.camera.PointDepth(point));
-        //ASSERT(depth > 0);
 		ASSERT(depth > 0);
-		//if (depth <= 0)
-		//	continue;
-		
+		if (depth <= 0)
+			continue;
 		// store this point
 		if (views.size() >= nMinPointViews)
 			points.push_back((uint32_t)idx);
@@ -1404,86 +1392,8 @@ bool Scene::ExportChunks(const ImagesChunkArr& chunks, const String& path, ARCHI
 {
 	FOREACH(chunkID, chunks) {
 		const ImagesChunk& chunk = chunks[chunkID];
-<<<<<<< HEAD
-		Scene subset;
-		subset.nCalibratedImages = (IIndex)chunk.images.size();
-		// extract chunk images
-		typedef std::unordered_map<IIndex,IIndex> MapIIndex;
-		MapIIndex mapPlatforms(platforms.size());
-		MapIIndex mapImages(images.size());
-		FOREACH(idxImage, images) {
-			if (chunk.images.find(idxImage) == chunk.images.end())
-				continue;
-			const Image& image = images[idxImage];
-			if (!image.IsValid())
-				continue;
-			// copy platform
-			const Platform& platform = platforms[image.platformID];
-			MapIIndex::iterator itSubPlatformMVS = mapPlatforms.find(image.platformID);
-			uint32_t subPlatformID;
-			if (itSubPlatformMVS == mapPlatforms.end()) {
-				ASSERT(subset.platforms.size() == mapPlatforms.size());
-				subPlatformID = subset.platforms.size();
-				mapPlatforms.emplace(image.platformID, subPlatformID);
-				Platform subPlatform;
-				subPlatform.name = platform.name;
-				subPlatform.cameras = platform.cameras;
-				subset.platforms.emplace_back(std::move(subPlatform));
-			} else {
-				subPlatformID = itSubPlatformMVS->second;
-			}
-			Platform& subPlatform = subset.platforms[subPlatformID];
-			// copy image
-			const IIndex idxImageNew((IIndex)mapImages.size());
-			mapImages[idxImage] = idxImageNew;
-			Image subImage(image);
-			subImage.platformID = subPlatformID;
-			subImage.poseID = subPlatform.poses.size();
-			subImage.ID = idxImage;
-			subset.images.emplace_back(std::move(subImage));
-			// copy pose
-			subPlatform.poses.emplace_back(platform.poses[image.poseID]);
-		}
-		// map image IDs from global to local
-		for (Image& image: subset.images) {
-			RFOREACH(i, image.neighbors) {
-				ViewScore& neighbor = image.neighbors[i];
-				const auto itImage(mapImages.find(neighbor.ID));
-				if (itImage == mapImages.end()) {
-					image.neighbors.RemoveAtMove(i);
-					continue;
-				}
-				ASSERT(itImage->second < subset.images.size());
-				neighbor.ID = itImage->second;
-			}
-		}
-		// extract point-cloud
-		FOREACH(idxPoint, pointcloud.points) {
-			PointCloud::ViewArr subViews;
-			PointCloud::WeightArr subWeights;
-			const PointCloud::ViewArr& views = pointcloud.pointViews[idxPoint];
-			FOREACH(i, views) {
-				const IIndex idxImage(views[i]);
-				const auto itImage(mapImages.find(idxImage));
-				if (itImage == mapImages.end())
-					continue;
-				subViews.emplace_back(itImage->second);
-				if (!pointcloud.pointWeights.empty())
-					subWeights.emplace_back(pointcloud.pointWeights[idxPoint][i]);
-			}
-			if (subViews.size() < 2)
-				continue;
-			subset.pointcloud.points.emplace_back(pointcloud.points[idxPoint]);
-			subset.pointcloud.pointViews.emplace_back(std::move(subViews));
-			if (!pointcloud.pointWeights.empty())
-				subset.pointcloud.pointWeights.emplace_back(std::move(subWeights));
-			if (!pointcloud.colors.empty())
-				subset.pointcloud.colors.emplace_back(pointcloud.colors[idxPoint]);
-		}
-=======
 		IIndexArr idxImages(chunk.images.begin(), chunk.images.end(), true);
 		Scene subset = SubScene(idxImages);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		// set scene ROI
 		subset.obb.Set(OBB3f::MATRIX::Identity(), chunk.aabb.ptMin, chunk.aabb.ptMax);
 		// serialize out the current state
@@ -1747,8 +1657,6 @@ REAL Scene::ComputeLeveledVolume(float planeThreshold, float sampleMesh, unsigne
 	}
 	return mesh.ComputeVolume();
 }
-<<<<<<< HEAD
-=======
 
 // add noise to camera poses:
 //  - epsPosition: noise in camera position (in scene units)
@@ -1889,7 +1797,6 @@ Scene& Scene::CropToROI(const OBB3f& obb, unsigned minNumPoints)
 	}
 	return *this = SubScene(idxImages);
 }
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 /*----------------------------------------------------------------*/
 
 
@@ -2255,21 +2162,13 @@ PointCloud Scene::BuildTowerMesh(const PointCloud& origPointCloud, const Point2f
 					topPoints.swap(botPoints);
 			}
 		}
-<<<<<<< HEAD
-		mesh.Save("tower_mesh.ply");
-=======
 		mesh.Save(MAKE_PATH("tower_mesh.ply"));
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	} else
 	#endif
 	{
 		mesh.Release();
 	}
-<<<<<<< HEAD
-	towerPC.Save("tower.ply");
-=======
 	towerPC.Save(MAKE_PATH("tower.ply"));
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	return towerPC;
 }
 
@@ -2291,15 +2190,9 @@ void Scene::InitTowerScene(const int towerMode)
 	mesh.Release();
 
 	const auto AppendPointCloud = [this](const PointCloud& towerPC) {
-<<<<<<< HEAD
-		bool bHasNormal(pointcloud.normals.size() == pointcloud.GetSize());
-		bool bHasColor(pointcloud.colors.size() == pointcloud.GetSize());
-		bool bHasWeights(pointcloud.pointWeights.size() == pointcloud.GetSize());
-=======
 		bool bHasNormal(towerPC.normals.size() == towerPC.GetSize());
 		bool bHasColor(towerPC.colors.size() == towerPC.GetSize());
 		bool bHasWeights(towerPC.pointWeights.size() == towerPC.GetSize());
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 		FOREACH(idxPoint, towerPC.points) {
 			pointcloud.points.emplace_back(towerPC.points[idxPoint]);
 			pointcloud.pointViews.emplace_back(towerPC.pointViews[idxPoint]);

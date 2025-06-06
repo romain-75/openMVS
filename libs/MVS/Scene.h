@@ -120,12 +120,10 @@ public:
 	void Transform(const Matrix3x4& transform);
 	bool AlignTo(const Scene&);
 	REAL ComputeLeveledVolume(float planeThreshold=0, float sampleMesh=-100000, unsigned upAxis=2, bool verbose=true);
-<<<<<<< HEAD
-=======
+
 	void AddNoiseCameraPoses(float epsPosition, float epsRotation);
 	Scene SubScene(const IIndexArr& idxImages) const;
 	Scene& CropToROI(const OBB3f&, unsigned minNumPoints = 3);
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 
 	// Estimate and set region-of-interest
 	bool EstimateROI(int nEstimateROI=0, float scale=1.f);

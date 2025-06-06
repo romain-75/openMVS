@@ -32,23 +32,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 SET(VCG_ROOT "/3d/vcglib")
 
 # List configuration options
-<<<<<<< HEAD
-SET(OpenMVS_BUILD_TOOLS ON CACHE BOOL "Build example applications")
-SET(OpenMVS_USE_OPENMP ON CACHE BOOL "Enable OpenMP library")
-SET(OpenMVS_USE_OPENGL ON CACHE BOOL "Enable OpenGL library")
-SET(OpenMVS_USE_BREAKPAD ON CACHE BOOL "Enable BreakPad library")
-SET(OpenMVS_USE_PYTHON ON CACHE BOOL "Enable Python library bindings")
-SET(OpenMVS_USE_CERES OFF CACHE BOOL "Enable CERES optimization library")
-SET(OpenMVS_USE_CUDA ON CACHE BOOL "Enable CUDA library")
-SET(OpenMVS_USE_FAST_FLOAT2INT OFF CACHE BOOL "Use an optimized code to convert real numbers to int")
-SET(OpenMVS_USE_FAST_INVSQRT OFF CACHE BOOL "Use an optimized code to compute the inverse square root (slower in fact on modern compilers)")
-SET(OpenMVS_USE_FAST_CBRT ON CACHE BOOL "Use an optimized code to compute the cubic root")
-#SET(OpenMVS_USE_SSE OFF CACHE BOOL "Enable SSE optimizations")
-SET(OpenMVS_USE_FAST_CBRT OFF CACHE BOOL "Use an optimized code to compute the cubic root")
-SET(OpenMVS_USE_SSE ON CACHE BOOL "Enable SSE optimizations")
-SET(OpenMVS_MAX_CUDA_COMPATIBILITY OFF CACHE BOOL "Build for maximum CUDA device compatibility")
-SET(OpenMVS_ENABLE_TESTS OFF CACHE BOOL "Enable test code")
-=======
 OPTION(OpenMVS_BUILD_TOOLS "Build example applications" ON)
 OPTION(OpenMVS_BUILD_VIEWER "Build viewer application" ON)
 OPTION(OpenMVS_USE_OPENMP "Enable OpenMP library" ON)
@@ -69,7 +52,6 @@ IF(APPLE)
 	SET(OpenMVS_USE_CUDA OFF)
 	MESSAGE(STATUS "Disabling CUDA on MacOS")
 ENDIF()
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 
 # Load automatically VCPKG toolchain if available
 IF(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND DEFINED ENV{VCPKG_ROOT})
@@ -100,13 +82,6 @@ SET(OpenMVS_MINOR_VERSION 3)
 SET(OpenMVS_PATCH_VERSION 0)
 SET(OpenMVS_VERSION ${OpenMVS_MAJOR_VERSION}.${OpenMVS_MINOR_VERSION}.${OpenMVS_PATCH_VERSION})
 
-<<<<<<< HEAD
-# Disable SSE on unsuported platforms
-IF(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|ARM|aarch64|AARCH64)")
-	SET(OpenMVS_USE_SSE OFF)
-ENDIF()
-
-=======
 # Disable SSE on unsupported platforms
 IF(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|ARM|aarch64|AARCH64)")
 	SET(OpenMVS_USE_SSE OFF)
@@ -130,7 +105,6 @@ SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Set global property to avoid cyclic dependencies.
 SET_PROPERTY(GLOBAL PROPERTY GLOBAL_DEPENDS_NO_CYCLES ON)
 
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 # Define helper functions and macros.
 INCLUDE(build/Utils.cmake)
 
@@ -154,23 +128,16 @@ if(OpenMVS_ENABLE_IPO)
 		SET_PROPERTY(GLOBAL PROPERTY CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 		MESSAGE(STATUS "Interprocedural optimization enabled")
 	else()
-<<<<<<< HEAD
-		message ("Force OPENMP")
-		SET(_USE_OPENMP TRUE)
-		ADD_DEFINITIONS(-Xpreprocessor -fopenmp)
-		INCLUDE_DIRECTORIES(/opt/homebrew/Cellar/libomp/19.1.7/include)
-		LIST(APPEND OpenMVS_EXTRA_LIBS -L/opt/homebrew/Cellar/libomp/19.1.7/lib -lomp)
-		MESSAGE("-- Can't find OpenMP. Continuing without it.")
-=======
 		MESSAGE(WARNING "Interprocedural optimization is not supported: ${IPO_ERROR}")
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 	endif()
 endif()
+
 
 if(OpenMVS_USE_OPENMP)
 	FIND_PACKAGE(OpenMP QUIET)
 	if(OPENMP_FOUND)
 		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+		
 		SET(_USE_OPENMP TRUE)
 		# cmake only check for separate OpenMP library on AppleClang 7+
 		# https://github.com/Kitware/CMake/blob/42212f7539040139ecec092547b7d58ef12a4d72/Modules/FindOpenMP.cmake#L252
@@ -178,8 +145,17 @@ if(OpenMVS_USE_OPENMP)
 			LIST(APPEND OpenMVS_EXTRA_LIBS ${OpenMP_libomp_LIBRARY})
 		endif()
 		MESSAGE(STATUS "Found OpenMP " ${OpenMP_VERSION} " " ${OpenMP_LIBRARY})
+		
 	else()
-		MESSAGE(STATUS "Can't find OpenMP. Continuing without it.")
+	
+	    IF(APPLE)
+            message (STATUS "Force OpenMP on MacOs")		
+            ADD_DEFINITIONS(-Xpreprocessor -fopenmp)
+            INCLUDE_DIRECTORIES(/opt/homebrew/opt/libomp/include)
+            LIST(APPEND OpenMVS_EXTRA_LIBS -L/opt/homebrew/opt/libomp/lib -lomp)
+        else(APPLE)	
+    		MESSAGE(STATUS "Can't find OpenMP. Continuing without it.")
+    	endif(APPLE)
 	endif()
 endif()
 
@@ -194,23 +170,7 @@ if(OpenMVS_USE_CUDA)
 			SET(CMAKE_CUDA_ARCHITECTURES "native")
 		endif()
 		ENABLE_LANGUAGE(CUDA)
-<<<<<<< HEAD
-		# CUDA-11.x can not be compiled using C++14 standard on Windows
-		string(REGEX MATCH "^[0-9]+" CUDA_MAJOR ${CMAKE_CUDA_COMPILER_VERSION})
-		if(${CUDA_MAJOR} GREATER 10)
-			SET(CMAKE_CUDA_STANDARD 17)
-		endif()
-		EXECUTE_PROCESS(COMMAND "${CMAKE_CUDA_COMPILER}" --list-gpu-arch 
-				OUTPUT_VARIABLE LIST_GPU_ARCH 
-				ERROR_QUIET)
-		if(NOT LIST_GPU_ARCH AND OpenMVS_MAX_CUDA_COMPATIBILITY)
-			message(WARNING "Cannot compile for max CUDA compatibility, nvcc does not support --list-gpu-arch")
-			SET(OpenMVS_MAX_CUDA_COMPATIBILITY OFF)
-		endif()
-		if(NOT OpenMVS_MAX_CUDA_COMPATIBILITY)
-			if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-				SET(CMAKE_CUDA_ARCHITECTURES 75)
-=======
+
 		SET(CUDA_FOUND TRUE)
 		SET(CMAKE_CUDA_STANDARD 17)
 		SET(CMAKE_CUDA_STANDARD_REQUIRED ON)
@@ -222,7 +182,6 @@ if(OpenMVS_USE_CUDA)
 			if(NOT LIST_GPU_ARCH)
 				MESSAGE(WARNING "Cannot compile for max CUDA compatibility, nvcc does not support --list-gpu-arch")
 				SET(OpenMVS_MAX_CUDA_COMPATIBILITY OFF)
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
 			endif()
 		endif()
 		if(OpenMVS_MAX_CUDA_COMPATIBILITY)
@@ -275,10 +234,7 @@ SET(Boost_EXTRA_COMPONENTS "")
 if(OpenMVS_USE_PYTHON)
 	FIND_PACKAGE(Python3 COMPONENTS Interpreter Development REQUIRED)
 	if(Python3_FOUND)
-<<<<<<< HEAD
-		INCLUDE_DIRECTORIES(${Python3_INCLUDE_DIRS})
-=======
->>>>>>> 8089fd75d6a5ece2abe99a72cadf1314134d4efd
+#		INCLUDE_DIRECTORIES(${Python3_INCLUDE_DIRS})
 		LIST(APPEND OpenMVS_EXTRA_INCLUDES ${Python3_INCLUDE_DIRS})
 		LIST(APPEND OpenMVS_EXTRA_LIBS ${Python3_LIBRARIES})
 		LIST(APPEND Boost_EXTRA_COMPONENTS python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR})
